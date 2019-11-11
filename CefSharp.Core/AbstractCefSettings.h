@@ -18,8 +18,8 @@ namespace CefSharp
     public ref class AbstractCefSettings abstract
     {
     private:
-        List<CefExtension^>^ _cefExtensions;
-        IDictionary<String^, String^>^ _cefCommandLineArgs;
+        List<V8Extension^>^ _cefExtensions;
+        CommandLineArgDictionary^ _cefCommandLineArgs;
 
     internal:
         ::CefSettings* _cefSettings;
@@ -33,13 +33,19 @@ namespace CefSharp
         {
             _cefSettings->multi_threaded_message_loop = true;
             _cefSettings->no_sandbox = true;
-            BrowserSubprocessPath = Path::Combine(Path::GetDirectoryName(this->GetType()->Assembly->Location), "CefSharp.BrowserSubprocess.exe");
+            BrowserSubprocessPath = Path::Combine(Path::GetDirectoryName(AbstractCefSettings::typeid->Assembly->Location), "CefSharp.BrowserSubprocess.exe");
             _cefCustomSchemes = gcnew List<CefCustomScheme^>();
-            _cefExtensions = gcnew List<CefExtension^>();
-            _cefCommandLineArgs = gcnew Dictionary<String^, String^>();
+            _cefExtensions = gcnew List<V8Extension^>();
+            _cefCommandLineArgs = gcnew CommandLineArgDictionary();
 
             //Automatically discovered and load a system-wide installation of Pepper Flash.
-            _cefCommandLineArgs->Add("enable-system-flash", "1");
+            _cefCommandLineArgs->Add("enable-system-flash");
+
+            //CEF has switched to the new process model defined that was implemented
+            //in the Chromium Site isolation project, we'll continue to use the older
+            //process model by default.
+            //https://github.com/cefsharp/CefSharp/issues/2553
+            _cefCommandLineArgs->Add("process-per-site-instance");
         }
 
         !AbstractCefSettings()
@@ -61,11 +67,12 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// Add CefExtensions to be registered
+        /// List of all V8Extensions to be registered using CefRegisterExtension
+        /// in the render process.
         /// </summary>
-        virtual property IEnumerable<CefExtension^>^ Extensions
+        virtual property IEnumerable<V8Extension^>^ Extensions
         {
-            IEnumerable<CefExtension^>^ get() { return _cefExtensions; }
+            IEnumerable<V8Extension^>^ get() { return _cefExtensions; }
         }
 
         /// <summary>
@@ -73,9 +80,9 @@ namespace CefSharp
         /// added in OnBeforeCommandLineProcessing.
         // The CefSettings.command_line_args_disabled value can be used to start with an empty command-line object. Any values specified in CefSettings that equate to command-line arguments will be set before this method is called.
         /// </summary>
-        virtual property IDictionary<String^, String^>^ CefCommandLineArgs
+        virtual property CommandLineArgDictionary^ CefCommandLineArgs
         {
-            IDictionary<String^, String^>^ get() { return _cefCommandLineArgs; }
+            CommandLineArgDictionary^ get() { return _cefCommandLineArgs; }
         }
 
         /// <summary>
@@ -130,17 +137,34 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// The location where cache data will be stored on disk. If empty then
-        /// browsers will be created in "incognito mode" where in-memory caches are
-        /// used for storage and no data is persisted to disk. HTML5 databases such as
-        /// localStorage will only persist across sessions if a cache path is
-        /// specified. Can be overridden for individual CefRequestContext instances via
-        /// the RequestContextSettings.CachePath value.
+        /// The location where data for the global browser cache will be stored on disk.
+        /// In non-empty this must be either equal to or a child directory of CefSettings.RootCachePath
+        /// (if RootCachePath is empty it will default to this value).
+        /// If empty then browsers will be created in "incognito mode" where in-memory caches are used
+        /// for storage and no data is persisted to disk. HTML5 databases such as localStorage will
+        /// only persist across sessions if a cache path is specified. Can be overridden for individual
+        /// RequestContext instances via the RequestContextSettings.CachePath value.
         /// </summary>
         property String^ CachePath
         {
             String^ get() { return StringUtils::ToClr(_cefSettings->cache_path); }
             void set(String^ value) { StringUtils::AssignNativeFromClr(_cefSettings->cache_path, value); }
+        }
+
+        /// <summary>
+        /// The root directory that all CefSettings.CachePath and RequestContextSettings.CachePath values
+        /// must have in common. If this value is empty and CefSettings.CachePath is non-empty then this
+        /// value will default to the CefSettings.CachePath value. Failure to set this value correctly
+        /// may result in the sandbox blocking read/write access to the CachePath directory.
+        /// NOTE: CefSharp does not implement the CHROMIUM SANDBOX.
+        /// A non-empty RootCachePath can be used in conjuncation with an empty CefSettings.CachePath
+        /// in instances where you would like browsers attached to the Global RequestContext (the default)
+        /// created in "incognito mode" and instances created with a custom RequestContext using a disk based cache.
+        /// </summary>
+        property String^ RootCachePath
+        {
+            String^ get() { return StringUtils::ToClr(_cefSettings->root_cache_path); }
+            void set(String^ value) { StringUtils::AssignNativeFromClr(_cefSettings->root_cache_path, value); }
         }
 
         /// <summary>
@@ -215,9 +239,9 @@ namespace CefSharp
 
         /// <summary>
         /// The log severity. Only messages of this severity level or higher will be
-        /// logged. Also configurable using the "log-severity" command-line switch with
-        /// a value of "verbose", "info", "warning", "error", "error-report" or
-        /// "disable".
+        /// logged. When set to <see cref="CefSharp.LogSeverity.Disable"/> no messages will be written to the log file,
+        /// but Fatal messages will still be output to stderr. Also configurable using the "log-severity" command-line switch with
+        /// a value of "verbose", "info", "warning", "error", "fatal", "error-report" or "disable".
         /// </summary>
         property CefSharp::LogSeverity LogSeverity
         {
@@ -366,6 +390,18 @@ namespace CefSharp
         }
 
         /// <summary>
+        /// GUID string used for identifying the application. This is passed to the
+        /// system AV function for scanning downloaded files. By default, the GUID
+        /// will be an empty string and the file will be treated as an untrusted
+        /// file when the GUID is empty.
+        /// </summary>
+        property String^ ApplicationClientIdForFileScanning
+        {
+            String^ get() { return StringUtils::ToClr(_cefSettings->application_client_id_for_file_scanning); }
+            void set(String^ value) { StringUtils::AssignNativeFromClr(_cefSettings->application_client_id_for_file_scanning, value); }
+        }
+
+        /// <summary>
         /// Registers a custom scheme using the provided settings.
         /// </summary>
         /// <param name="cefCustomScheme">The CefCustomScheme which provides the details about the scheme.</param>
@@ -378,10 +414,10 @@ namespace CefSharp
         }
 
         /// <summary>
-        /// Registers an extension with the provided settings.
+        /// Register a new V8 extension with the specified JavaScript extension code
         /// </summary>
-        /// <param name="extension">The CefExtension that contains the extension code.</param>
-        void RegisterExtension(CefExtension^ extension)
+        /// <param name="extension">The V8Extension that contains the extension code.</param>
+        void RegisterExtension(V8Extension^ extension)
         {
             if (_cefExtensions->Contains(extension))
             {
@@ -397,7 +433,19 @@ namespace CefSharp
         {
             if (!_cefCommandLineArgs->ContainsKey("disable-gpu"))
             {
-                _cefCommandLineArgs->Add("disable-gpu", "1");
+                _cefCommandLineArgs->Add("disable-gpu");
+            }
+        }
+
+        /// <summary>
+        /// Set command line argument to enable Print Preview
+        /// See https://bitbucket.org/chromiumembedded/cef/issues/123/add-support-for-print-preview for details
+        /// </summary>
+        void EnablePrintPreview()
+        {
+            if (!_cefCommandLineArgs->ContainsKey("enable-print-preview"))
+            {
+                _cefCommandLineArgs->Add("enable-print-preview");
             }
         }
 
@@ -414,12 +462,12 @@ namespace CefSharp
             // See https://bitbucket.org/chromiumembedded/cef/issues/1257 for details.
             if (!_cefCommandLineArgs->ContainsKey("disable-gpu"))
             {
-                _cefCommandLineArgs->Add("disable-gpu", "1");
+                _cefCommandLineArgs->Add("disable-gpu");
             }
 
             if (!_cefCommandLineArgs->ContainsKey("disable-gpu-compositing"))
             {
-                _cefCommandLineArgs->Add("disable-gpu-compositing", "1");
+                _cefCommandLineArgs->Add("disable-gpu-compositing");
             }
 
             // Synchronize the frame rate between all processes. This results in
@@ -431,7 +479,7 @@ namespace CefSharp
             // See https://bitbucket.org/chromiumembedded/cef/issues/1368 for details.
             if (!_cefCommandLineArgs->ContainsKey("enable-begin-frame-scheduling"))
             {
-                _cefCommandLineArgs->Add("enable-begin-frame-scheduling", "1");
+                _cefCommandLineArgs->Add("enable-begin-frame-scheduling");
             }
         }
     };

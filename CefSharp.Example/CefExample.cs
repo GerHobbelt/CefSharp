@@ -13,17 +13,22 @@ namespace CefSharp.Example
 {
     public static class CefExample
     {
-        public const string BaseUrl = "custom://cefsharp";
+        //TODO: Revert after https://bitbucket.org/chromiumembedded/cef/issues/2685/networkservice-custom-scheme-unable-to
+        //has been fixed.
+        public const string BaseUrl = "https://cefsharp.example";
         public const string DefaultUrl = BaseUrl + "/home.html";
         public const string BindingTestUrl = BaseUrl + "/BindingTest.html";
         public const string BindingTestSingleUrl = BaseUrl + "/BindingTestSingle.html";
+        public const string BindingTestsAsyncTaskUrl = BaseUrl + "/BindingTestsAsyncTask.html";
         public const string LegacyBindingTestUrl = BaseUrl + "/LegacyBindingTest.html";
+        public const string PostMessageTestUrl = BaseUrl + "/PostMessageTest.html";
         public const string PluginsTestUrl = BaseUrl + "/plugins.html";
         public const string PopupTestUrl = BaseUrl + "/PopupTest.html";
         public const string TooltipTestUrl = BaseUrl + "/TooltipTest.html";
         public const string BasicSchemeTestUrl = BaseUrl + "/SchemeTest.html";
         public const string ResponseFilterTestUrl = BaseUrl + "/ResponseFilterTest.html";
         public const string DraggableRegionTestUrl = BaseUrl + "/DraggableRegionTest.html";
+        public const string DragDropCursorsTestUrl = BaseUrl + "/DragDropCursorsTest.html";
         public const string CssAnimationTestUrl = BaseUrl + "/CssAnimationTest.html";
         public const string CdmSupportTestUrl = BaseUrl + "/CdmSupportTest.html";
         public const string TestResourceUrl = "http://test/resource/load";
@@ -49,6 +54,10 @@ namespace CefSharp.Example
             //Chromium Command Line args
             //http://peter.sh/experiments/chromium-command-line-switches/
             //NOTE: Not all relevant in relation to `CefSharp`, use for reference purposes only.
+            //CEF specific command line args
+            //https://bitbucket.org/chromiumembedded/cef/src/master/libcef/common/cef_switches.cc?fileviewer=file-view-default
+            //IMPORTANT: For enabled/disabled command line arguments like disable-gpu specifying a value of "0" like
+            //settings.CefCommandLineArgs.Add("disable-gpu", "0"); will have no effect as the second argument is ignored.
 
             settings.RemoteDebuggingPort = 8088;
             //The location where cache data will be stored on disk. If empty an in-memory cache will be used for some features and a temporary disk cache for others.
@@ -56,23 +65,26 @@ namespace CefSharp.Example
             settings.CachePath = "cache";
             //settings.UserAgent = "CefSharp Browser" + Cef.CefSharpVersion; // Example User Agent
             //settings.CefCommandLineArgs.Add("renderer-process-limit", "1");
-            //settings.CefCommandLineArgs.Add("renderer-startup-dialog", "1");
-            //settings.CefCommandLineArgs.Add("enable-media-stream", "1"); //Enable WebRTC
-            //settings.CefCommandLineArgs.Add("no-proxy-server", "1"); //Don't use a proxy server, always make direct connections. Overrides any other proxy server flags that are passed.
-            //settings.CefCommandLineArgs.Add("debug-plugin-loading", "1"); //Dumps extra logging about plugin loading to the log file.
-            //settings.CefCommandLineArgs.Add("disable-plugins-discovery", "1"); //Disable discovering third-party plugins. Effectively loading only ones shipped with the browser plus third-party ones as specified by --extra-plugin-dir and --load-plugin switches
-            //settings.CefCommandLineArgs.Add("enable-system-flash", "1"); //Automatically discovered and load a system-wide installation of Pepper Flash.
-            //settings.CefCommandLineArgs.Add("allow-running-insecure-content", "1"); //By default, an https page cannot run JavaScript, CSS or plugins from http URLs. This provides an override to get the old insecure behavior. Only available in 47 and above.
+            //settings.CefCommandLineArgs.Add("renderer-startup-dialog");
+            //settings.CefCommandLineArgs.Add("enable-media-stream"); //Enable WebRTC
+            //settings.CefCommandLineArgs.Add("no-proxy-server"); //Don't use a proxy server, always make direct connections. Overrides any other proxy server flags that are passed.
+            //settings.CefCommandLineArgs.Add("debug-plugin-loading"); //Dumps extra logging about plugin loading to the log file.
+            //settings.CefCommandLineArgs.Add("disable-plugins-discovery"); //Disable discovering third-party plugins. Effectively loading only ones shipped with the browser plus third-party ones as specified by --extra-plugin-dir and --load-plugin switches
+            //settings.CefCommandLineArgs.Add("enable-system-flash"); //Automatically discovered and load a system-wide installation of Pepper Flash.
+            //settings.CefCommandLineArgs.Add("allow-running-insecure-content"); //By default, an https page cannot run JavaScript, CSS or plugins from http URLs. This provides an override to get the old insecure behavior. Only available in 47 and above.
 
-            //settings.CefCommandLineArgs.Add("enable-logging", "1"); //Enable Logging for the Renderer process (will open with a cmd prompt and output debug messages - use in conjunction with setting LogSeverity = LogSeverity.Verbose;)
+            //settings.CefCommandLineArgs.Add("enable-logging"); //Enable Logging for the Renderer process (will open with a cmd prompt and output debug messages - use in conjunction with setting LogSeverity = LogSeverity.Verbose;)
             //settings.LogSeverity = LogSeverity.Verbose; // Needed for enable-logging to output messages
 
-            //settings.CefCommandLineArgs.Add("disable-extensions", "1"); //Extension support can be disabled
-            //settings.CefCommandLineArgs.Add("disable-pdf-extension", "1"); //The PDF extension specifically can be disabled
+            //settings.CefCommandLineArgs.Add("disable-extensions"); //Extension support can be disabled
+            //settings.CefCommandLineArgs.Add("disable-pdf-extension"); //The PDF extension specifically can be disabled
 
             //Load the pepper flash player that comes with Google Chrome - may be possible to load these values from the registry and query the dll for it's version info (Step 2 not strictly required it seems)
             //settings.CefCommandLineArgs.Add("ppapi-flash-path", @"C:\Program Files (x86)\Google\Chrome\Application\47.0.2526.106\PepperFlash\pepflashplayer.dll"); //Load a specific pepper flash version (Step 1 of 2)
             //settings.CefCommandLineArgs.Add("ppapi-flash-version", "20.0.0.228"); //Load a specific pepper flash version (Step 2 of 2)
+
+            //Audo play example
+            //settings.CefCommandLineArgs["autoplay-policy"] = "no-user-gesture-required";
 
             //NOTE: For OSR best performance you should run with GPU disabled:
             // `--disable-gpu --disable-gpu-compositing --enable-begin-frame-scheduling`
@@ -82,23 +94,18 @@ namespace CefSharp.Example
 
             //NOTE: The following function will set all three params
             //settings.SetOffScreenRenderingBestPerformanceArgs();
-            //settings.CefCommandLineArgs.Add("disable-gpu", "1");
-            //settings.CefCommandLineArgs.Add("disable-gpu-compositing", "1");
-            //settings.CefCommandLineArgs.Add("enable-begin-frame-scheduling", "1");
+            //settings.CefCommandLineArgs.Add("disable-gpu");
+            //settings.CefCommandLineArgs.Add("disable-gpu-compositing");
+            //settings.CefCommandLineArgs.Add("enable-begin-frame-scheduling");
 
-            //settings.CefCommandLineArgs.Add("disable-gpu-vsync", "1"); //Disable Vsync
-
-            //Disables the DirectWrite font rendering system on windows.
-            //Possibly useful when experiencing blury fonts.
-            //settings.CefCommandLineArgs.Add("disable-direct-write", "1");
+            //settings.CefCommandLineArgs.Add("disable-gpu-vsync"); //Disable Vsync
 
             // The following options control accessibility state for all frames.
             // These options only take effect if accessibility state is not set by IBrowserHost.SetAccessibilityState call.
             // --force-renderer-accessibility enables browser accessibility.
             // --disable-renderer-accessibility completely disables browser accessibility.
-            //settings.CefCommandLineArgs.Add("force-renderer-accessibility", "1");
-            //settings.CefCommandLineArgs.Add("disable-renderer-accessibility", "1");
-
+            //settings.CefCommandLineArgs.Add("force-renderer-accessibility");
+            //settings.CefCommandLineArgs.Add("disable-renderer-accessibility");
 
             //Enables Uncaught exception handler
             settings.UncaughtExceptionStackSize = 10;
@@ -107,11 +114,11 @@ namespace CefSharp.Example
             if (settings.WindowlessRenderingEnabled)
             {
                 //Disable Direct Composition to test https://github.com/cefsharp/CefSharp/issues/1634
-                //settings.CefCommandLineArgs.Add("disable-direct-composition", "1");
+                //settings.CefCommandLineArgs.Add("disable-direct-composition");
 
                 // DevTools doesn't seem to be working when this is enabled
                 // http://magpcss.org/ceforum/viewtopic.php?f=6&t=14095
-                //settings.CefCommandLineArgs.Add("enable-begin-frame-scheduling", "1");
+                //settings.CefCommandLineArgs.Add("enable-begin-frame-scheduling");
             }
 
             var proxy = ProxyConfig.GetProxyInformation();
@@ -120,7 +127,7 @@ namespace CefSharp.Example
                 case InternetOpenType.Direct:
                 {
                     //Don't use a proxy server, always make direct connections.
-                    settings.CefCommandLineArgs.Add("no-proxy-server", "1");
+                    settings.CefCommandLineArgs.Add("no-proxy-server");
                     break;
                 }
                 case InternetOpenType.Proxy:
@@ -130,7 +137,7 @@ namespace CefSharp.Example
                 }
                 case InternetOpenType.PreConfig:
                 {
-                    settings.CefCommandLineArgs.Add("proxy-auto-detect", "1");
+                    settings.CefCommandLineArgs.Add("proxy-auto-detect");
                     break;
                 }
             }
@@ -147,8 +154,14 @@ namespace CefSharp.Example
             {
                 SchemeName = CefSharpSchemeHandlerFactory.SchemeName,
                 SchemeHandlerFactory = new CefSharpSchemeHandlerFactory(),
-                IsSecure = true //treated with the same security rules as those applied to "https" URLs
-                //SchemeHandlerFactory = new InMemorySchemeAndResourceHandlerFactory()
+                IsSecure = true, //treated with the same security rules as those applied to "https" URLs
+            });
+
+            settings.RegisterScheme(new CefCustomScheme
+            {
+                SchemeName = "https",
+                SchemeHandlerFactory = new CefSharpSchemeHandlerFactory(),
+                DomainName = "cefsharp.example"
             });
 
             settings.RegisterScheme(new CefCustomScheme
@@ -176,15 +189,16 @@ namespace CefSharp.Example
                                                                     defaultPage: "home.html") //Optional param will default to index.html
             });
 
-            settings.RegisterExtension(new CefExtension("cefsharp/example", Resources.extension));
+            settings.RegisterExtension(new V8Extension("cefsharp/example", Resources.extension));
 
             //This must be set before Cef.Initialized is called
             CefSharpSettings.FocusedNodeChangedEnabled = true;
 
-            //Experimental option where bound async methods are queued on TaskScheduler.Default.
+            //Async Javascript Binding - methods are queued on TaskScheduler.Default.
+            //Set this to true to when you have methods that return Task<T>
             //CefSharpSettings.ConcurrentTaskExecution = true;
 
-            //Legacy Binding Behaviour doesn't work for cross-site navigation (navigating to a different domain)
+            //Legacy Binding Behaviour - Same as Javascript Binding in version 57 and below
             //See issue https://github.com/cefsharp/CefSharp/issues/1203 for details
             //CefSharpSettings.LegacyJavascriptBindingEnabled = true;
 
@@ -208,7 +222,7 @@ namespace CefSharp.Example
 
         public static async void RegisterTestResources(IWebBrowser browser)
         {
-            var handler = browser.ResourceHandlerFactory as DefaultResourceHandlerFactory;
+            var handler = browser.ResourceRequestHandlerFactory as ResourceRequestHandlerFactory;
             if (handler != null)
             {
                 const string renderProcessCrashedBody = "<html><body><h1>Render Process Crashed</h1><p>Your seeing this message as the render process has crashed</p></body></html>";

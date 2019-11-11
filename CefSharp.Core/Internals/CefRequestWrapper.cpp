@@ -22,6 +22,7 @@ namespace CefSharp
         void CefRequestWrapper::Flags::set(UrlRequestFlags flags)
         {
             ThrowIfDisposed();
+            ThrowIfReadOnly();
 
             _wrappedRequest->SetFlags((int)flags);
         }
@@ -41,6 +42,7 @@ namespace CefSharp
             }
 
             ThrowIfDisposed();
+            ThrowIfReadOnly();
 
             CefString str = StringUtils::ToNative(url);
             _wrappedRequest->SetURL(str);
@@ -61,6 +63,7 @@ namespace CefSharp
             }
 
             ThrowIfDisposed();
+            ThrowIfReadOnly();
 
             _wrappedRequest->SetMethod(StringUtils::ToNative(method));
         }
@@ -75,6 +78,7 @@ namespace CefSharp
         void CefRequestWrapper::SetReferrer(String^ referrerUrl, CefSharp::ReferrerPolicy policy)
         {
             ThrowIfDisposed();
+            ThrowIfReadOnly();
 
             _wrappedRequest->SetReferrer(StringUtils::ToNative(referrerUrl), (cef_referrer_policy_t)policy);
         }
@@ -107,7 +111,7 @@ namespace CefSharp
             CefRequest::HeaderMap hm;
             _wrappedRequest->GetHeaderMap(hm);
 
-            NameValueCollection^ headers = gcnew NameValueCollection();
+            auto headers = gcnew HeaderNameValueCollection();
 
             for (CefRequest::HeaderMap::iterator it = hm.begin(); it != hm.end(); ++it)
             {
@@ -116,12 +120,18 @@ namespace CefSharp
                 headers->Add(name, value);
             }
 
+            if (_wrappedRequest->IsReadOnly())
+            {
+                headers->SetReadOnly();
+            }
+
             return headers;
         }
 
         void CefRequestWrapper::Headers::set(NameValueCollection^ headers)
         {
             ThrowIfDisposed();
+            ThrowIfReadOnly();
 
             CefRequest::HeaderMap hm;
 
@@ -171,7 +181,24 @@ namespace CefSharp
         {
             ThrowIfDisposed();
 
+            ThrowIfReadOnly();
+
             _wrappedRequest->SetPostData(CefPostData::Create());
+        }
+
+        String^ CefRequestWrapper::GetHeaderByName(String^ name)
+        {
+            ThrowIfDisposed();
+
+            return StringUtils::ToClr(_wrappedRequest->GetHeaderByName(StringUtils::ToNative(name)));
+        }
+
+        void CefRequestWrapper::SetHeaderByName(String^ name, String^ value, bool overwrite)
+        {
+            ThrowIfDisposed();
+            ThrowIfReadOnly();
+
+            _wrappedRequest->SetHeaderByName(StringUtils::ToNative(name), StringUtils::ToNative(value), overwrite);
         }
     }
 }

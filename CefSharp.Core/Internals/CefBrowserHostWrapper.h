@@ -11,6 +11,7 @@
 using namespace System::Threading::Tasks;
 using namespace CefSharp::Structs;
 using namespace CefSharp::Enums;
+using namespace CefSharp::Callback;
 
 namespace CefSharp
 {
@@ -45,6 +46,7 @@ namespace CefSharp
             virtual void Print();
             virtual void PrintToPdf(String^ path, PdfPrintSettings^ settings, IPrintToPdfCallback^ callback);
             virtual void SetZoomLevel(double zoomLevel);
+            virtual double GetZoomLevel();
             virtual Task<double>^ GetZoomLevelAsync();
             virtual IntPtr GetWindowHandle();
             virtual void CloseBrowser(bool forceClose);
@@ -71,6 +73,13 @@ namespace CefSharp
             virtual void AddWordToDictionary(String^ word);
             virtual void ReplaceMisspelling(String^ word);
 
+            virtual property IExtension^ Extension
+            {
+                IExtension^ get();
+            }
+
+            virtual void RunFileDialog(CefFileDialogMode mode, String^ title, String^ defaultFilePath, IList<String^>^ acceptFilters, int selectedAcceptFilter, IRunFileDialogCallback^ callback);
+
             virtual void Find(int identifier, String^ searchText, bool forward, bool matchCase, bool findNext);
             virtual void StopFinding(bool clearSelection);
 
@@ -81,10 +90,17 @@ namespace CefSharp
 
             virtual void SendMouseWheelEvent(MouseEvent mouseEvent, int deltaX, int deltaY);
 
+            virtual void SendTouchEvent(TouchEvent evt);
+
             virtual void Invalidate(PaintElementType type);
 
-            virtual void ImeSetComposition(String^ text, cli::array<CompositionUnderline>^ underlines, Nullable<Range> selectionRange);
-            virtual void ImeCommitText(String^ text);
+            virtual property bool IsBackgroundHost
+            {
+                bool get();
+            }
+
+            virtual void ImeSetComposition(String^ text, cli::array<CompositionUnderline>^ underlines, Nullable<Range> replacementRange, Nullable<Range> selectionRange);
+            virtual void ImeCommitText(String^ text, Nullable<Range> replacementRange, int relativeCursorPos);
             virtual void ImeFinishComposingText(bool keepSelection);
             virtual void ImeCancelComposition();
 
@@ -124,6 +140,13 @@ namespace CefSharp
             {
                 bool get();
             }
+
+            virtual property bool IsAudioMuted
+            {
+                bool get();
+            }
+
+            virtual void SetAudioMuted(bool mute);
 
             virtual IntPtr GetOpenerWindowHandle();
 

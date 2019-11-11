@@ -54,6 +54,9 @@ namespace CefSharp
             virtual property bool IsReadOnly { bool get(); }
             virtual void InitializePostData();
 
+            virtual String^ GetHeaderByName(String^ name);
+            virtual void SetHeaderByName(String^ name, String^ value, bool overwrite);
+
             operator CefRefPtr<CefRequest>()
             {
                 if (this == nullptr)
@@ -61,6 +64,14 @@ namespace CefSharp
                     return NULL;
                 }
                 return _wrappedRequest.get();
+            }
+
+            void ThrowIfReadOnly()
+            {
+                if (_wrappedRequest->IsReadOnly())
+                {
+                    throw gcnew NotSupportedException("IRequest is read-only and cannot be modified. Check IRequest.IsReadOnly to guard against this exception.");
+                }
             }
         };
     }

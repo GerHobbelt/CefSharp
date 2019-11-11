@@ -10,6 +10,13 @@
 #include "Internals\CefFrameWrapper.h"
 #include "Internals\StringVisitor.h"
 #include "Internals\ClientAdapter.h"
+#include "Internals\Serialization\Primitives.h"
+#include "Internals\Messaging\Messages.h"
+#include "Internals\CefURLRequestWrapper.h"
+#include "Internals\CefURLRequestClientAdapter.h" 
+
+using namespace CefSharp::Internals::Messaging;
+using namespace CefSharp::Internals::Serialization;
 
 ///
 // True if this object is currently attached to a valid frame.
@@ -203,20 +210,6 @@ void CefFrameWrapper::LoadUrl(String^ url)
 }
 
 ///
-// Load the contents of |html| with the specified dummy |url|. |url|
-// should have a standard scheme (for example, http scheme) or behaviors like
-// link clicks and web security restrictions may not behave as expected.
-///
-/*--cef()--*/
-void CefFrameWrapper::LoadStringForUrl(String^ html, String^ url)
-{
-    ThrowIfDisposed();
-    ThrowIfFrameInvalid();
-
-    _frame->LoadString(StringUtils::ToNative(html), StringUtils::ToNative(url));
-}
-
-///
 // Execute a string of JavaScript code in this frame. The |script_url|
 // parameter is the URL where the script in question can be found, if any.
 // The renderer may request this URL to show the developer the source of the
@@ -240,9 +233,29 @@ Task<JavascriptResponse^>^ CefFrameWrapper::EvaluateScriptAsync(String^ script, 
     auto browser = _frame->GetBrowser();
     auto host = browser->GetHost();
 
+    //If we're unable to get the underlying browser/browserhost then return null
+    if (!browser.get() || !host.get())
+    {
+        return nullptr;
+    }
+
     auto client = static_cast<ClientAdapter*>(host->GetClient().get());
 
-    return client->EvaluateScriptAsync(browser->GetIdentifier(), browser->IsPopup(), _frame->GetIdentifier(), script, scriptUrl, startLine, timeout);
+    auto pendingTaskRepository = client->GetPendingTaskRepository();
+
+    //create a new taskcompletionsource
+    auto idAndComplectionSource = pendingTaskRepository->CreatePendingTask(timeout);
+
+    auto message = CefProcessMessage::Create(kEvaluateJavascriptRequest);
+    auto argList = message->GetArgumentList();
+    SetInt64(argList, 0, idAndComplectionSource.Key);
+    argList->SetString(1, StringUtils::ToNative(script));
+    argList->SetString(2, StringUtils::ToNative(scriptUrl));
+    argList->SetInt(3, startLine);
+
+    _frame->SendProcessMessage(CefProcessId::PID_RENDERER, message);
+
+    return idAndComplectionSource.Value->Task;
 }
 
 ///
@@ -380,6 +393,27 @@ IRequest^ CefFrameWrapper::CreateRequest(bool initializePostData)
     }
 
     return gcnew CefRequestWrapper(request);
+}
+
+IUrlRequest^ CefFrameWrapper::CreateUrlRequest(IRequest^ request, IUrlRequestClient^ client)
+{
+    ThrowIfDisposed();
+
+    if (request == nullptr)
+    {
+        throw gcnew ArgumentNullException("request");
+    }
+
+    if (client == nullptr)
+    {
+        throw gcnew ArgumentNullException("client");
+    }
+
+    auto urlRequest = _frame->CreateURLRequest(
+        (CefRequestWrapper^)request,
+        new CefUrlRequestClientAdapter(client));
+
+    return gcnew CefUrlRequestWrapper(urlRequest);
 }
 
 void CefFrameWrapper::ThrowIfFrameInvalid()

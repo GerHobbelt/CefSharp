@@ -1181,18 +1181,24 @@ namespace CefSharp
             else if (name == kJavascriptAsyncMethodCallRequest && !_browserAdapter->IsDisposed)
             {
                 auto frameId = frame->GetIdentifier();
-                auto objectId = GetInt64(argList, 0);
-                auto callbackId = GetInt64(argList, 1);
                 auto methodName = StringUtils::ToClr(argList->GetString(2));
-                auto arguments = argList->GetList(3);
-                auto methodInvocation = gcnew MethodInvocation(browser->GetIdentifier(), frameId, objectId, methodName, (callbackId > 0 ? Nullable<int64>(callbackId) : Nullable<int64>()));
-                for (auto i = 0; i < static_cast<int>(arguments->GetSize()); i++)
+                try
                 {
-                    methodInvocation->Parameters->Add(DeserializeObject(arguments, i, callbackFactory));
+                    auto objectId = GetInt64(argList, 0);
+                    auto callbackId = GetInt64(argList, 1);
+                    auto arguments = argList->GetList(3);
+                    auto methodInvocation = gcnew MethodInvocation(browser->GetIdentifier(), frameId, objectId, methodName, (callbackId > 0 ? Nullable<int64>(callbackId) : Nullable<int64>()));
+                    for (auto i = 0; i < static_cast<int>(arguments->GetSize()); i++)
+                    {
+                        methodInvocation->Parameters->Add(DeserializeObject(arguments, i, callbackFactory));
+                    }
+
+                    _browserAdapter->MethodRunnerQueue->Enqueue(methodInvocation);
                 }
-
-                _browserAdapter->MethodRunnerQueue->Enqueue(methodInvocation);
-
+                catch (Exception ^ e)
+                {
+                    throw gcnew Exception("Exception handling javascript async method call: " + methodName, e);
+                }
                 handled = true;
             }
             else if (name == kJavascriptMessageReceived)

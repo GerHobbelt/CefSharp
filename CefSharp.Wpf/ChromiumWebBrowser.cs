@@ -2300,6 +2300,11 @@ namespace CefSharp.Wpf
             }
 
             base.OnMouseDown(e);
+
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                Mouse.Capture(this); // allow capturing mouse when outside the webview (eg: grabbing scrollbar)
+            }
         }
 
         /// <summary>
@@ -2330,6 +2335,11 @@ namespace CefSharp.Wpf
             }
 
             base.OnMouseUp(e);
+
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                Mouse.Capture(null);
+            }
         }
 
         /// <summary>

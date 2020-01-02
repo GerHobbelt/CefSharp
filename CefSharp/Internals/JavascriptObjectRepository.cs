@@ -305,7 +305,7 @@ namespace CefSharp.Internals
                             }
                             catch (Exception ex)
                             {
-                                throw ex;
+                                throw new InvalidOperationException("MethodInterceptor.Intercept failure", ex);
                             }
                         }, parameters, method.ManagedName);
                     }

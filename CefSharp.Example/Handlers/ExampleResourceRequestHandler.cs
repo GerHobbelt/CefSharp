@@ -42,6 +42,7 @@ namespace CefSharp.Example.Handlers
                 request.SetReferrer("http://google.com", ReferrerPolicy.Default);
             }
 
+#if false
             //Example of setting User-Agent in every request.
             var headers = request.Headers;
 
@@ -49,6 +50,7 @@ namespace CefSharp.Example.Handlers
             headers["User-Agent"] = userAgent + " CefSharp";
 
             request.Headers = headers;
+#endif
 
             //NOTE: If you do not wish to implement this method returning false is the default behaviour
             // We also suggest you explicitly Dispose of the callback as it wraps an unmanaged resource.

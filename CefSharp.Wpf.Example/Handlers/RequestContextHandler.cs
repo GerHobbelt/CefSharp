@@ -2,6 +2,8 @@
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
+using System.Collections.Generic;
+
 namespace CefSharp.Wpf.Example.Handlers
 {
     public class RequestContextHandler : IRequestContextHandler
@@ -36,8 +38,16 @@ namespace CefSharp.Wpf.Example.Handlers
             //    ["mode"] = "fixed_servers",
             //    ["server"] = "scheme://host:port"
             //};
+            //
+            // Example:
+            //		[0]	{[mode, fixed_servers]}
+            //      [1] {[server, http=127.0.0.1:8118;https=127.0.0.1:8118]}
+            //
             //string errorMessage;
             //bool success = requestContext.SetPreference("proxy", v, out errorMessage);
+
+            var p = requestContext.GetPreference("proxy");
+            var v = p as Dictionary<string, object>;
         }
     }
 }

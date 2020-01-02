@@ -3,6 +3,7 @@
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using CefSharp.SchemeHandler;
@@ -88,6 +89,10 @@ namespace CefSharp.Example.Handlers
                 //    ["server"] = "scheme://host:port"
                 //};
                 //success = context.SetPreference("proxy", v, out errorMessage);
+
+                //TODO: [GHo] this one should list 2 entries when the proxy settings made it through intact.
+                var p = context.GetPreference("proxy");
+                var v = p as Dictionary<string, object>;
 
                 //It's possible to register a scheme handler for the default http and https schemes
                 //In this example we register the FolderSchemeHandlerFactory for https://cefsharp.example

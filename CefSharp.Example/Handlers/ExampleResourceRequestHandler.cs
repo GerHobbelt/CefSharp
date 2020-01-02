@@ -43,12 +43,12 @@ namespace CefSharp.Example.Handlers
             }
 
             //Example of setting User-Agent in every request.
-            //var headers = request.Headers;
+            var headers = request.Headers;
 
-            //var userAgent = headers["User-Agent"];
-            //headers["User-Agent"] = userAgent + " CefSharp";
+            var userAgent = headers["User-Agent"];
+            headers["User-Agent"] = userAgent + " CefSharp";
 
-            //request.Headers = headers;
+            request.Headers = headers;
 
             //NOTE: If you do not wish to implement this method returning false is the default behaviour
             // We also suggest you explicitly Dispose of the callback as it wraps an unmanaged resource.

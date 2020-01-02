@@ -15,6 +15,7 @@ namespace CefSharp.Example.Proxy
 
         private const uint InternetOptionProxy = 38;
 
+        //TODO: [GHo] this one picks up the proxy info from the OS, but it separates schemes with a space rather than the semicolon required for the Chrome/CefSharp commandline. That is fixed in the settings code of the example.
         public static InternetProxyInfo GetProxyInformation()
         {
             var bufferLength = 0;

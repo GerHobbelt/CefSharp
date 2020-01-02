@@ -720,7 +720,14 @@ namespace CefSharp
             ThrowExceptionIfBrowserHostNull(host);
 
             var callback = new TaskPrintToPdfCallback();
-            host.PrintToPdf(path, settings, callback);
+            try
+            {
+                host.PrintToPdf(path, settings, callback);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("internal failure", ex);
+            }
 
             return callback.Task;
         }

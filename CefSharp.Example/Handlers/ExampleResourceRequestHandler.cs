@@ -54,7 +54,7 @@ namespace CefSharp.Example.Handlers
             //callback.Dispose();
             //return false;
 
-            //NOTE: When executing the callback in an async fashion need to check to see if it's disposed
+            //NOTE: When executing the callback in an async fashion you need to check to see if it's disposed
             if (!callback.IsDisposed)
             {
                 using (callback)

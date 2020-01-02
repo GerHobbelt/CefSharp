@@ -501,7 +501,7 @@ namespace CefSharp.Wpf
         /// Initializes a new instance of the <see cref="ChromiumWebBrowser"/> class.
         /// Use this constructor to load the browser before it's attached to the Visual Tree.
         /// The underlying CefBrowser will be created with the specified <paramref name="size"/>.
-        /// CEF requires posative values for <see cref="Size.Width"/> and <see cref="Size.Height"/>,
+        /// CEF requires positive values for <see cref="Size.Width"/> and <see cref="Size.Height"/>,
         /// if values less than 1 are specified then the default value of 1 will be used instead.
         /// You can subscribe to the <see cref="LoadingStateChanged"/> event and attach the browser
         /// to it's parent control when Loading is complete (<see cref="LoadingStateChangedEventArgs.IsLoading"/> is false).
@@ -552,7 +552,7 @@ namespace CefSharp.Wpf
         /// <summary>
         /// Constructor logic has been moved into this method
         /// Required for designer support - this method cannot be inlined as the designer
-        /// will attempt to load libcef.dll and will subsiquently throw an exception.
+        /// will attempt to load libcef.dll and will subsequently throw an exception.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private void NoInliningConstructor()
@@ -829,7 +829,7 @@ namespace CefSharp.Wpf
             screenX = 0;
             screenY = 0;
 
-            //We manually claculate the screen point as calling PointToScreen can only be called on the UI thread
+            //We manually calculate the screen point as calling PointToScreen can only be called on the UI thread
             // in a sync fashion and it's easy for users to get themselves into a deadlock.
             if (DpiScaleFactor > 1)
             {

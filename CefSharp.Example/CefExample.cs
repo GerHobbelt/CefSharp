@@ -66,7 +66,13 @@ namespace CefSharp.Example
 
             //TODO: [GHo] set custom browser UserAgent; see Google Scholar + bibTex tests...
             settings.UserAgent = "CefSharp Browser v" + Cef.CefSharpVersion; // Example User Agent
+						
             //settings.CefCommandLineArgs.Add("renderer-process-limit", "1");
+			
+			// BEWARE: some of the examples like Add("renderer-startup-dialog", "1") suggest that using "0" instead of would switch off the feature			
+			// But this in not the case: For most of these on/off flags chrome just switches it on as long as it sees the flag like --renderer-startup-dialog 
+			// Using "0","1" or "hell-no" will make no difference			
+			
             //settings.CefCommandLineArgs.Add("renderer-startup-dialog");
             //settings.CefCommandLineArgs.Add("enable-media-stream"); //Enable WebRTC
             //settings.CefCommandLineArgs.Add("no-proxy-server"); //Don't use a proxy server, always make direct connections. Overrides any other proxy server flags that are passed.

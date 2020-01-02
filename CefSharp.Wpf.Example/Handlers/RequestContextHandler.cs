@@ -6,7 +6,7 @@ namespace CefSharp.Wpf.Example.Handlers
 {
     public class RequestContextHandler : IRequestContextHandler
     {
-        private readonly ICookieManager customCookieManager;
+        //private readonly ICookieManager customCookieManager;
 
         IResourceRequestHandler IRequestContextHandler.GetResourceRequestHandler(IBrowser browser, IFrame frame, IRequest request, bool isNavigation, bool isDownload, string requestInitiator, ref bool disableDefaultHandling)
         {

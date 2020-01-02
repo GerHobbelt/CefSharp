@@ -88,12 +88,15 @@ namespace CefSharp.Wpf.Example.Views
 
             browser.DragHandler = dragHandler;
             //browser.ResourceHandlerFactory = new InMemorySchemeAndResourceHandlerFactory();
-            //You can specify a custom RequestContext to share settings amount groups of ChromiumWebBrowsers
+            //You can specify a custom RequestContext to share settings among groups of ChromiumWebBrowsers
             //Also this is now the only way to access OnBeforePluginLoad - need to implement IRequestContextHandler
-            //browser.RequestContext = new RequestContext(new RequestContextHandler());
+#if false
+            browser.RequestContext = new RequestContext(new RequestContextHandler());
             //NOTE - This is very important for this example as the default page will not load otherwise
-            //browser.RequestContext.RegisterSchemeHandlerFactory(CefSharpSchemeHandlerFactory.SchemeName, null, new CefSharpSchemeHandlerFactory());
-            //browser.RequestContext.RegisterSchemeHandlerFactory("https", "cefsharp.example", new CefSharpSchemeHandlerFactory());
+            browser.RequestContext.RegisterSchemeHandlerFactory(CefSharpSchemeHandlerFactory.SchemeName, null, new CefSharpSchemeHandlerFactory());
+            browser.RequestContext.RegisterSchemeHandlerFactory("https", "cefsharp.example", new CefSharpSchemeHandlerFactory());
+            // ^^^ compare this (limited) set with the CefExample.Init()::settings.RegisterScheme(...) call series in CefExample.cs
+#endif
 
             //You can start setting preferences on a RequestContext that you created straight away, still needs to be called on the CEF UI thread.
             //Cef.UIThreadTaskFactory.StartNew(delegate

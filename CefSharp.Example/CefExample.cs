@@ -63,7 +63,9 @@ namespace CefSharp.Example
             //The location where cache data will be stored on disk. If empty an in-memory cache will be used for some features and a temporary disk cache for others.
             //HTML5 databases such as localStorage will only persist across sessions if a cache path is specified. 
             settings.CachePath = "cache";
-            //settings.UserAgent = "CefSharp Browser" + Cef.CefSharpVersion; // Example User Agent
+
+            //TODO: [GHo] set custom browser UserAgent; see Google Scholar + bibTex tests...
+            settings.UserAgent = "CefSharp Browser v" + Cef.CefSharpVersion; // Example User Agent
             //settings.CefCommandLineArgs.Add("renderer-process-limit", "1");
             //settings.CefCommandLineArgs.Add("renderer-startup-dialog");
             //settings.CefCommandLineArgs.Add("enable-media-stream"); //Enable WebRTC
@@ -126,6 +128,7 @@ namespace CefSharp.Example
                 //settings.CefCommandLineArgs.Add("enable-begin-frame-scheduling");
             }
 
+            //TODO: [GHo] this one picks up the proxy info from the OS, but it separates schemes with a space rather than the semicolon required for the Chrome/CefSharp commandline. That is fixed in the settings code of the example.
             var proxy = ProxyConfig.GetProxyInformation();
             switch (proxy.AccessType)
             {
@@ -137,7 +140,7 @@ namespace CefSharp.Example
                 }
                 case InternetOpenType.Proxy:
                 {
-                    settings.CefCommandLineArgs.Add("proxy-server", proxy.ProxyAddress);
+                    settings.CefCommandLineArgs.Add("proxy-server", proxy.ProxyAddress.Replace(' ', ';'));
                     break;
                 }
                 case InternetOpenType.PreConfig:
@@ -213,7 +216,7 @@ namespace CefSharp.Example
             CefSharpSettings.SubprocessExitIfParentProcessClosed = true;
 
             //NOTE: Set this before any calls to Cef.Initialize to specify a proxy with username and password
-            //One set this cannot be changed at runtime. If you need to change the proxy at runtime (dynamically) then
+            //Once set this cannot be changed at runtime. If you need to change the proxy at runtime (dynamically) then
             //see https://github.com/cefsharp/CefSharp/wiki/General-Usage#proxy-resolution
             //CefSharpSettings.Proxy = new ProxyOptions(ip: "127.0.0.1", port: "8080", username: "cefsharp", password: "123");
 

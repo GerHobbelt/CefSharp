@@ -296,7 +296,18 @@ namespace CefSharp.Internals
                     }
                     else
                     {
-                        result = obj.MethodInterceptor.Intercept((p) => method.Function(obj.Value, p), parameters, method.ManagedName);
+                        result = obj.MethodInterceptor.Intercept((p) =>
+                        {
+                            try
+                            {
+                                var rv = method.Function(obj.Value, p);
+                                return rv;
+                            }
+                            catch (Exception ex)
+                            {
+                                throw ex;
+                            }
+                        }, parameters, method.ManagedName);
                     }
                 }
                 catch (Exception e)

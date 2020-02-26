@@ -168,7 +168,8 @@ namespace CefSharp
                 tempBuffer = new byte[dataOut.Length];
             }
 
-            bytesRead = Stream.Read(tempBuffer, 0, tempBuffer.Length);
+            //Only read the number of bytes that can be written to dataOut
+            bytesRead = Stream.Read(tempBuffer, 0, (int)dataOut.Length);
 
             // To indicate response completion set bytesRead to 0 and return false
             if (bytesRead == 0)
@@ -218,8 +219,14 @@ namespace CefSharp
 
         void IResourceHandler.Cancel()
         {
-            Stream = null;
-            tempBuffer = null;
+            // Prior to Prior to https://bitbucket.org/chromiumembedded/cef/commits/90301bdb7fd0b32137c221f38e8785b3a8ad8aa4
+            // This method was unexpectedly being called during Read (from a different thread),
+            // changes to the threading model were made and I haven't confirmed if this is still
+            // the case.
+            // 
+            // The documentation for Cancel is vaigue and there aren't any examples that
+            // illustrage it's intended use case so for now we'll just keep things
+            // simple and free our resources in Dispose
         }
 
         bool IResourceHandler.ProcessRequest(IRequest request, ICallback callback)
@@ -956,7 +963,31 @@ namespace CefSharp
             {".xtp", "application/octet-stream"},
             {".xwd", "image/x-xwindowdump"},
             {".z", "application/x-compress"},
-            {".zip", "application/x-zip-compressed"}
+            {".zip", "application/x-zip-compressed"},
+
+            // Recently added entries from 
+            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
+            // https://cs.chromium.org/chromium/src/net/base/mime_util.cc?sq=package:chromium&g=0&l=147
+            {".wasm", "application/wasm"},
+            {".ogg", "audio/ogg"},
+            {".oga", "audio/ogg"},
+            {".ogv", "video/ogg"},
+            {".opus", "audio/opus"},
+            {".webm", "video/webm"},
+            {".weba", "audio/webm"},
+            //https://developers.google.com/speed/webp
+            {".webp", "image/webp"},
+            {".epub", "application/epub+zip"},
+            // We'll map .woff to font/woff as application/font-woff is deprecated
+            // https://tools.ietf.org/html/rfc8081#section-4.4.5
+            // Deprecated Alias:  The existing registration "application/font-woff" is deprecated in favor of "font/woff".
+            {".woff", "font/woff"},
+            // https://www.w3.org/TR/WOFF2/#IMT
+            // https://tools.ietf.org/html/rfc8081#section-4.4.6
+            {".woff2", "font/woff2"},
+            //TODO: Mapping should be updated (exists above)
+            //{".ttf", "font/ttf"},
+            {".otf", "font/otf"}
         };
 
         /// <summary>
@@ -987,8 +1018,10 @@ namespace CefSharp
             if (AutoDisposeStream && Stream != null)
             {
                 Stream.Dispose();
-                Stream = null;
             }
+
+            Stream = null;
+            tempBuffer = null;
         }
     }
 }

@@ -18,7 +18,6 @@ namespace CefSharp.WinForms
     /// ChromiumWebBrowser is the WinForms web browser control
     /// </summary>
     /// <seealso cref="System.Windows.Forms.Control" />
-    /// <seealso cref="CefSharp.Internals.IWebBrowserInternal" />
     /// <seealso cref="CefSharp.WinForms.IWinFormsWebBrowser" />
     [Docking(DockingBehavior.AutoDock), DefaultEvent("LoadingStateChanged"), ToolboxBitmap(typeof(ChromiumWebBrowser)),
     Description("CefSharp ChromiumWebBrowser - Chromium Embedded Framework .Net wrapper. https://github.com/cefsharp/CefSharp"),
@@ -376,7 +375,7 @@ namespace CefSharp.WinForms
         /// <summary>
         /// ParentFormMessageInterceptor hooks the Form handle and forwards
         /// the move/active messages to the browser, the default is true
-        /// and should only be required when using <see cref="CefSettings.MultiThreadedMessageLoop"/>
+        /// and should only be required when using <see cref="AbstractCefSettings.MultiThreadedMessageLoop"/>
         /// set to true.
         /// </summary>
         [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(true)]
@@ -619,7 +618,7 @@ namespace CefSharp.WinForms
         /// To re-enable Window Activation then remove WS_EX_NOACTIVATE from ExStyle
         /// <code>
         /// const uint WS_EX_NOACTIVATE = 0x08000000;
-        /// windowInfo.ExStyle &= ~WS_EX_NOACTIVATE;
+        /// windowInfo.ExStyle &amp;= ~WS_EX_NOACTIVATE;
         ///</code>
         /// </example>
         protected virtual IWindowInfo CreateBrowserWindowInfo(IntPtr handle)

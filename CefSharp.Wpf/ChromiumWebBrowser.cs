@@ -2115,7 +2115,6 @@ namespace CefSharp.Wpf
         {
             var isVisible = (bool)args.NewValue;
 
-
             if (RenderHandler is AcceleratedPaintRenderHandler)
             {
                 if (isVisible)
@@ -2186,7 +2185,6 @@ namespace CefSharp.Wpf
                 this.lastRender = args.RenderingTime;
             }
         }
-
 
         /// <summary>
         /// Handles the <see cref="E:ApplicationExit" /> event.

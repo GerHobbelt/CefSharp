@@ -13,8 +13,10 @@ namespace CefSharp
 {
     /// <summary>
     /// Initialization settings. Many of these and other settings can also configured using command-line switches.
+    /// WPF/WinForms/OffScreen each have their own CefSettings implementation that sets
+    /// relevant settings e.g. OffScreen starts with audio muted.
     /// </summary>
-    public ref class AbstractCefSettings abstract
+    public ref class CefSettingsBase abstract
     {
     private:
         /// <summary>
@@ -40,17 +42,14 @@ namespace CefSharp
         /// <summary>
         /// Default Constructor.
         /// </summary>
-        AbstractCefSettings() : _cefSettings(new ::CefSettings())
+        CefSettingsBase() : _cefSettings(new ::CefSettings())
         {
             _cefSettings->multi_threaded_message_loop = true;
             _cefSettings->no_sandbox = true;
-            BrowserSubprocessPath = Path::Combine(Path::GetDirectoryName(AbstractCefSettings::typeid->Assembly->Location), "CefSharp.BrowserSubprocess.exe");
+            BrowserSubprocessPath = Path::Combine(Path::GetDirectoryName(CefSettingsBase::typeid->Assembly->Location), "CefSharp.BrowserSubprocess.exe");
             _cefCustomSchemes = gcnew List<CefCustomScheme^>();
             _cefExtensions = gcnew List<V8Extension^>();
             _cefCommandLineArgs = gcnew CommandLineArgDictionary();
-
-            //Automatically discovered and load a system-wide installation of Pepper Flash.
-            _cefCommandLineArgs->Add("enable-system-flash");
 
             //Disable site isolation trials as this causes problems with frames
             //being hosted in different render processes.
@@ -61,7 +60,7 @@ namespace CefSharp
         /// <summary>
         /// Finalizer.
         /// </summary>
-        !AbstractCefSettings()
+        !CefSettingsBase()
         {
             delete _cefSettings;
         }
@@ -69,9 +68,9 @@ namespace CefSharp
         /// <summary>
         /// Destructor.
         /// </summary>
-        ~AbstractCefSettings()
+        ~CefSettingsBase()
         {
-            this->!AbstractCefSettings();
+            this->!CefSettingsBase();
         }
 
         /// <summary>
@@ -405,7 +404,7 @@ namespace CefSharp
 
         /// <summary>
         /// Set command line argument to disable GPU Acceleration. WebGL will use
-		/// software rendering via Swiftshader (https://swiftshader.googlesource.com/SwiftShader#introduction)
+        /// software rendering via Swiftshader (https://swiftshader.googlesource.com/SwiftShader#introduction)
         /// </summary>
         void DisableGpuAcceleration()
         {
@@ -430,7 +429,7 @@ namespace CefSharp
         /// <summary>
         /// Set command line arguments for best OSR (Offscreen and WPF) Rendering performance Swiftshader will be used for WebGL, look at the source
         /// to determine which flags best suite your requirements. See https://swiftshader.googlesource.com/SwiftShader#introduction for
-		/// details on Swiftshader
+        /// details on Swiftshader
         /// </summary>
         void SetOffScreenRenderingBestPerformanceArgs()
         {

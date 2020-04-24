@@ -214,7 +214,7 @@ namespace CefSharp.Wpf
                 }
                 if (value != null && value.GetType() != typeof(RequestContext))
                 {
-                    throw new Exception(string.Format("RequestContxt can only be of type {0} or null", typeof(RequestContext)));
+                    throw new Exception(string.Format("RequestContext can only be of type {0} or null", typeof(RequestContext)));
                 }
                 requestContext = value;
             }
@@ -1372,6 +1372,15 @@ namespace CefSharp.Wpf
         /// A flag that indicates whether the WebBrowser is initialized (true) or not (false).
         /// </summary>
         /// <value><c>true</c> if this instance is browser initialized; otherwise, <c>false</c>.</value>
+        bool IWebBrowser.IsBrowserInitialized
+        {
+            get { return InternalIsBrowserInitialized(); }
+        }
+
+        /// <summary>
+        /// A flag that indicates whether the WebBrowser is initialized (true) or not (false).
+        /// </summary>
+        /// <value><c>true</c> if this instance is browser initialized; otherwise, <c>false</c>.</value>
         /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
         /// binding.</remarks>
         public bool IsBrowserInitialized
@@ -1954,6 +1963,12 @@ namespace CefSharp.Wpf
                 //Workaround for issue https://github.com/cefsharp/CefSharp/issues/2300
                 managedCefBrowserAdapter.CreateBrowser(windowInfo, browserSettings as BrowserSettings, requestContext as RequestContext, address: initialAddress);
 
+                //Dispose of BrowserSettings if we created it, if user created then they're responsible
+                if (browserSettings.FrameworkCreated)
+                {
+                    browserSettings.Dispose();
+                }
+
                 browserSettings = null;
             }
             browserCreated = true;
@@ -2286,7 +2301,18 @@ namespace CefSharp.Wpf
                     toolTip.IsOpen = false;
                 }
 
-                toolTip.Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+                //If no ToolTip style is defined then we'll
+                //use a TextBlock to ensure the Text is wrapped
+                //If a style is applied leave to the user to apply relevant wrapping
+                //Issue https://github.com/cefsharp/CefSharp/issues/2488
+                if (toolTip.Style == null)
+                {
+                    toolTip.Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+                }
+                else
+                {
+                    toolTip.SetCurrentValue(ContentControl.ContentProperty, text);
+                }
                 toolTip.Placement = PlacementMode.Mouse;
                 toolTip.Visibility = Visibility.Visible;
                 toolTip.IsOpen = true;

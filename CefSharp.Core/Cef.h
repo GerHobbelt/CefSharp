@@ -19,11 +19,11 @@
 #include <include/internal/cef_types.h>
 
 #include "Internals/CefSharpApp.h"
-#include "Internals/PluginVisitor.h"
+#include "Internals/CefWebPluginInfoVisitorAdapter.h"
 #include "Internals/CefTaskScheduler.h"
 #include "Internals/CefRegisterCdmCallbackAdapter.h"
 #include "CookieManager.h"
-#include "AbstractCefSettings.h"
+#include "CefSettingsBase.h"
 #include "RequestContext.h"
 
 using namespace System::Collections::Generic;
@@ -144,7 +144,7 @@ namespace CefSharp
         /// </summary>
         /// <param name="cefSettings">CefSharp configuration settings.</param>
         /// <returns>true if successful; otherwise, false.</returns>
-        static bool Initialize(AbstractCefSettings^ cefSettings)
+        static bool Initialize(CefSettingsBase^ cefSettings)
         {
             auto cefApp = gcnew DefaultApp(nullptr, cefSettings->CefCustomSchemes);
 
@@ -161,7 +161,7 @@ namespace CefSharp
         /// <param name="performDependencyCheck">Check that all relevant dependencies avaliable, throws exception if any are missing</param>
         /// <param name="browserProcessHandler">The handler for functionality specific to the browser process. Null if you don't wish to handle these events</param>
         /// <returns>true if successful; otherwise, false.</returns>
-        static bool Initialize(AbstractCefSettings^ cefSettings, bool performDependencyCheck, IBrowserProcessHandler^ browserProcessHandler)
+        static bool Initialize(CefSettingsBase^ cefSettings, bool performDependencyCheck, IBrowserProcessHandler^ browserProcessHandler)
         {
             auto cefApp = gcnew DefaultApp(browserProcessHandler, cefSettings->CefCustomSchemes);
 
@@ -178,7 +178,7 @@ namespace CefSharp
         /// <param name="performDependencyCheck">Check that all relevant dependencies avaliable, throws exception if any are missing</param>
         /// <param name="cefApp">Implement this interface to provide handler implementations. Null if you don't wish to handle these events</param>
         /// <returns>true if successful; otherwise, false.</returns>
-        static bool Initialize(AbstractCefSettings^ cefSettings, bool performDependencyCheck, IApp^ cefApp)
+        static bool Initialize(CefSettingsBase^ cefSettings, bool performDependencyCheck, IApp^ cefApp)
         {
             if (IsInitialized)
             {
@@ -207,6 +207,9 @@ namespace CefSharp
             UIThreadTaskFactory = gcnew TaskFactory(gcnew CefTaskScheduler(TID_UI));
             IOThreadTaskFactory = gcnew TaskFactory(gcnew CefTaskScheduler(TID_IO));
             FileThreadTaskFactory = gcnew TaskFactory(gcnew CefTaskScheduler(TID_FILE));
+
+            //To allow FolderSchemeHandlerFactory to access GetMimeType we pass in a Func
+            CefSharp::SchemeHandler::FolderSchemeHandlerFactory::GetMimeTypeDelegate = gcnew Func<String^, String^>(&GetMimeType);
 
             CefRefPtr<CefSharpApp> app(new CefSharpApp(cefSettings, cefApp));
             CefMainArgs main_args;
@@ -508,7 +511,7 @@ namespace CefSharp
         /// </summary>
         static void VisitWebPluginInfo(IWebPluginInfoVisitor^ visitor)
         {
-            CefVisitWebPluginInfo(new PluginVisitor(visitor));
+            CefVisitWebPluginInfo(new CefWebPluginInfoVisitorAdapter(visitor));
         }
 
         /// <summary>
@@ -519,7 +522,7 @@ namespace CefSharp
         static Task<List<WebPluginInfo^>^>^ GetPlugins()
         {
             auto taskVisitor = gcnew TaskWebPluginInfoVisitor();
-            CefRefPtr<PluginVisitor> visitor = new PluginVisitor(taskVisitor);
+            CefRefPtr<CefWebPluginInfoVisitorAdapter> visitor = new CefWebPluginInfoVisitorAdapter(taskVisitor);
 
             CefVisitWebPluginInfo(visitor);
 
@@ -763,10 +766,16 @@ namespace CefSharp
         /// <returns>Returns the mime type for the specified file extension or an empty string if unknown.</returns>
         static String^ GetMimeType(String^ extension)
         {
+            if (extension == nullptr)
+            {
+                throw gcnew ArgumentNullException("extension");
+            }
+
             if (extension->StartsWith("."))
             {
                 extension = extension->Substring(1, extension->Length - 1);
             }
+
             return StringUtils::ToClr(CefGetMimeType(StringUtils::ToNative(extension)));
         }
 

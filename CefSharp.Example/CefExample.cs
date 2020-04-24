@@ -40,7 +40,7 @@ namespace CefSharp.Example
         private static readonly bool DebuggingSubProcess = Debugger.IsAttached;
         private static string PluginInformation = "";
 
-        public static void Init(AbstractCefSettings settings, IBrowserProcessHandler browserProcessHandler)
+        public static void Init(CefSettingsBase settings, IBrowserProcessHandler browserProcessHandler)
         {
             // Set Google API keys, used for Geolocation requests sans GPS.  See http://www.chromium.org/developers/how-tos/api-keys
             // Environment.SetEnvironmentVariable("GOOGLE_API_KEY", "");
@@ -231,7 +231,13 @@ namespace CefSharp.Example
 
         public static async void RegisterTestResources(IWebBrowser browser)
         {
+            if (browser.ResourceRequestHandlerFactory == null)
+            {
+                browser.ResourceRequestHandlerFactory = new ResourceRequestHandlerFactory();
+            }
+
             var handler = browser.ResourceRequestHandlerFactory as ResourceRequestHandlerFactory;
+
             if (handler != null)
             {
                 const string renderProcessCrashedBody = "<html><body><h1>Render Process Crashed</h1><p>Your seeing this message as the render process has crashed</p></body></html>";

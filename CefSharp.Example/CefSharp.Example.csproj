@@ -74,6 +74,8 @@
     <Compile Include="Callback\RunFileDialogCallback.cs" />
     <Compile Include="Handlers\ExampleResourceRequestHandler.cs" />
     <Compile Include="Handlers\ExtensionHandler.cs" />
+    <Compile Include="Handlers\LoadHandler.cs" />
+    <Compile Include="Handlers\RequestHandler.cs" />
     <Compile Include="JavascriptBinding\AsyncBoundObject.cs" />
     <Compile Include="JavascriptBinding\BoundObject.cs" />
     <Compile Include="JavascriptBinding\CallbackResponseStruct.cs" />

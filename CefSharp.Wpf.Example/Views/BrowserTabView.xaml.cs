@@ -83,6 +83,12 @@ namespace CefSharp.Wpf.Example.Views
             downloadHandler.OnBeforeDownloadFired += OnBeforeDownloadFired;
             downloadHandler.OnDownloadUpdatedFired += OnDownloadUpdatedFired;
             browser.DownloadHandler = downloadHandler;
+            var loadHandler = new LoadHandler();
+            browser.LoadHandler = loadHandler;
+#if false
+            var requestHandler = new RequestHandler();
+            browser.RequestHandler = requestHandler;
+#endif
 
             //Read an embedded bitmap into a memory stream then register it as a resource you can then load custom://cefsharp/images/beach.jpg
             var beachImageStream = new MemoryStream();

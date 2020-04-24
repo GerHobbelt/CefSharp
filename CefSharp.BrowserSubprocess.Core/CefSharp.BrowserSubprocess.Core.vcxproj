@@ -23,7 +23,7 @@
     <ProjectGuid>{6C4BB501-2F8E-48AC-9AB5-8CFB2D74185C}</ProjectGuid>
     <Keyword>ManagedCProj</Keyword>
     <RootNamespace>CefSharpBrowserSubprocessCore</RootNamespace>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <Import Project="$(SolutionDir)\CefSharp.props" />
@@ -234,15 +234,15 @@
     <ClCompile Include="Serialization\V8Serialization.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CefSharp\CefSharp.csproj">
-      <Project>{a55848cc-10e7-40cb-addb-04740b16dd43}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="Resource.rc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CefSharp\CefSharp.csproj">
+      <Project>{a55848cc-10e7-40cb-addb-04740b16dd43}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

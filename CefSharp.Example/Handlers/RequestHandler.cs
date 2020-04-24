@@ -1,25 +1,15 @@
-// Copyright © 2014 The CefSharp Authors. All rights reserved.
+#if false
+// Copyright © 2013 The CefSharp Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 using System;
 using System.Security.Cryptography.X509Certificates;
 
-namespace CefSharp.Handler
+namespace CefSharp.Example.Handlers
 {
-    /// <summary>
-    /// Default implementation of <see cref="IRequestHandler"/>.
-    /// This class provides default implementations of the methods from <see cref="IRequestHandler"/>,
-    /// therefore providing a convenience base class for any custom request handler.
-    /// </summary>
-    [Obsolete("This class is now obsolete, inherit from RequestHandler instead.")]
-    public class DefaultRequestHandler : IRequestHandler
+    public class RequestHandler : IRequestHandler
     {
-        public DefaultRequestHandler()
-        {
-
-        }
-
         /// <summary>
         /// Called before browser navigation.
         /// If the navigation is allowed <see cref="IWebBrowser.FrameLoadStart"/> and <see cref="IWebBrowser.FrameLoadEnd"/>
@@ -34,7 +24,7 @@ namespace CefSharp.Handler
         /// (e.g. clicking a link) or false if it navigated automatically (e.g. via the DomContentLoaded event).</param>
         /// <param name="isRedirect">has the request been redirected</param>
         /// <returns>Return true to cancel the navigation or false to allow the navigation to proceed.</returns>
-        public virtual bool OnBeforeBrowse(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, bool userGesture, bool isRedirect)
+        public bool OnBeforeBrowse(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, bool userGesture, bool isRedirect)
         {
             return false;
         }
@@ -57,8 +47,10 @@ namespace CefSharp.Handler
         /// (e.g. clicking a link) or false if it navigated automatically (e.g. via the DomContentLoaded event).</param>
         /// <returns>Return true to cancel the navigation or false to allow the navigation
         /// to proceed in the source browser's top-level frame.</returns>
-        public virtual bool OnOpenUrlFromTab(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, string targetUrl,
-            WindowOpenDisposition targetDisposition, bool userGesture)
+        public bool OnOpenUrlFromTab(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame,
+                              string targetUrl,
+                              WindowOpenDisposition targetDisposition,
+                              bool userGesture)
         {
             return false;
         }
@@ -70,12 +62,12 @@ namespace CefSharp.Handler
         /// <param name="browser">represent the source browser of the request</param>
         /// <param name="frame">represent the source frame of the request</param>
         /// <param name="request">represents the request contents and cannot be modified in this callback</param>
-        /// <param name="iNavigation">will be true if the resource request is a navigation</param>
+        /// <param name="isNavigation">will be true if the resource request is a navigation</param>
         /// <param name="isDownload">will be true if the resource request is a download</param>
         /// <param name="requestInitiator">is the origin (scheme + domain) of the page that initiated the request</param>
         /// <param name="disableDefaultHandling">to true to disable default handling of the request, in which case it will need to be handled via <see cref="IResourceRequestHandler.GetResourceHandler"/> or it will be canceled</param>
         /// <returns>To allow the resource load to proceed with default handling return null. To specify a handler for the resource return a <see cref="IResourceRequestHandler"/> object. If this callback returns null the same method will be called on the associated <see cref="IRequestContextHandler"/>, if any</returns>
-        public virtual IResourceRequestHandler GetResourceRequestHandler(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, bool iNavigation, bool isDownload, string requestInitiator, ref bool disableDefaultHandling)
+        public IResourceRequestHandler GetResourceRequestHandler(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, bool isNavigation, bool isDownload, string requestInitiator, ref bool disableDefaultHandling)
         {
             return null;
         }
@@ -93,11 +85,9 @@ namespace CefSharp.Handler
         /// <param name="scheme">scheme</param>
         /// <param name="callback">Callback interface used for asynchronous continuation of authentication requests.</param>
         /// <returns>Return true to continue the request and call <see cref="IAuthCallback.Continue(string, string)"/> when the authentication information is available. Return false to cancel the request. </returns>
-        public virtual bool GetAuthCredentials(IWebBrowser chromiumWebBrowser, IBrowser browser, string originUrl, bool isProxy, string host,
-            int port, string realm, string scheme, IAuthCallback callback)
+        public bool GetAuthCredentials(IWebBrowser chromiumWebBrowser, IBrowser browser, string originUrl, bool isProxy, string host, int port, string realm, string scheme, IAuthCallback callback)
         {
-            callback.Dispose();
-            return false;
+            return true;
         }
 
         /// <summary>
@@ -113,11 +103,9 @@ namespace CefSharp.Handler
         /// <returns>Return false to cancel the request immediately. Return true to continue the request
         /// and call <see cref="IRequestCallback.Continue"/> either in this method or at a later time to
         /// grant or deny the request.</returns>
-        public virtual bool OnQuotaRequest(IWebBrowser chromiumWebBrowser, IBrowser browser, string originUrl, long newSize,
-            IRequestCallback callback)
+        public bool OnQuotaRequest(IWebBrowser chromiumWebBrowser, IBrowser browser, string originUrl, Int64 newSize, IRequestCallback callback)
         {
-            callback.Dispose();
-            return false;
+            return true;
         }
 
         /// <summary>
@@ -136,11 +124,9 @@ namespace CefSharp.Handler
         /// If empty the error cannot be recovered from and the request will be canceled automatically.</param>
         /// <returns>Return false to cancel the request immediately. Return true and use <see cref="IRequestCallback"/> to
         /// execute in an async fashion.</returns>
-        public virtual bool OnCertificateError(IWebBrowser chromiumWebBrowser, IBrowser browser, CefErrorCode errorCode, string requestUrl,
-            ISslInfo sslInfo, IRequestCallback callback)
+        public bool OnCertificateError(IWebBrowser chromiumWebBrowser, IBrowser browser, CefErrorCode errorCode, string requestUrl, ISslInfo sslInfo, IRequestCallback callback)
         {
-            callback.Dispose();
-            return false;
+            return true;
         }
 
         /// <summary>
@@ -155,10 +141,8 @@ namespace CefSharp.Handler
         /// <param name="callback">Callback interface used for asynchronous continuation of client certificate selection for authentication requests.</param>
         /// <returns>Return true to continue the request and call ISelectClientCertificateCallback.Select() with the selected certificate for authentication. 
         /// Return false to use the default behavior where the browser selects the first certificate from the list. </returns>
-        public virtual bool OnSelectClientCertificate(IWebBrowser chromiumWebBrowser, IBrowser browser, bool isProxy, string host, int port,
-            X509Certificate2Collection certificates, ISelectClientCertificateCallback callback)
+        public bool OnSelectClientCertificate(IWebBrowser chromiumWebBrowser, IBrowser browser, bool isProxy, string host, int port, X509Certificate2Collection certificates, ISelectClientCertificateCallback callback)
         {
-            callback.Dispose();
             return false;
         }
 
@@ -168,8 +152,9 @@ namespace CefSharp.Handler
         /// <param name="chromiumWebBrowser">the ChromiumWebBrowser control</param>
         /// <param name="browser">the browser object</param>
         /// <param name="pluginPath">path of the plugin that crashed</param>
-        public virtual void OnPluginCrashed(IWebBrowser chromiumWebBrowser, IBrowser browser, string pluginPath)
+        public void OnPluginCrashed(IWebBrowser chromiumWebBrowser, IBrowser browser, string pluginPath)
         {
+
         }
 
         /// <summary>
@@ -179,8 +164,9 @@ namespace CefSharp.Handler
         /// </summary>
         /// <param name="chromiumWebBrowser">The ChromiumWebBrowser control</param>
         /// <param name="browser">the browser object</param>
-        public virtual void OnRenderViewReady(IWebBrowser chromiumWebBrowser, IBrowser browser)
+        public void OnRenderViewReady(IWebBrowser chromiumWebBrowser, IBrowser browser)
         {
+
         }
 
         /// <summary>
@@ -189,8 +175,10 @@ namespace CefSharp.Handler
         /// <param name="chromiumWebBrowser">The ChromiumWebBrowser control</param>
         /// <param name="browser">the browser object</param>
         /// <param name="status">indicates how the process terminated.</param>
-        public virtual void OnRenderProcessTerminated(IWebBrowser chromiumWebBrowser, IBrowser browser, CefTerminationStatus status)
+        public void OnRenderProcessTerminated(IWebBrowser chromiumWebBrowser, IBrowser browser, CefTerminationStatus status)
         {
+
         }
     }
 }
+#endif

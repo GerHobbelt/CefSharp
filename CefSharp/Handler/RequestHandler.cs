@@ -13,6 +13,11 @@ namespace CefSharp.Handler
     /// <seealso cref="T:CefSharp.IRequestHandler"/>
     public class RequestHandler : IRequestHandler
     {
+        public RequestHandler()
+        {
+
+        }
+
         /// <inheritdoc/>
         bool IRequestHandler.OnBeforeBrowse(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, bool userGesture, bool isRedirect)
         {

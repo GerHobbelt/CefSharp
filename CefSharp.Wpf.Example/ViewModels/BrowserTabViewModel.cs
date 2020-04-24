@@ -165,12 +165,43 @@ namespace CefSharp.Wpf.Example.ViewModels
             }
         }
 
+        public class SV : IStringVisitor
+        {
+            private string rv;
+
+            public SV(ref string dst)
+            {
+                rv = dst;
+            }
+
+            /// <summary>
+            ///  Method that will be executed.
+            /// </summary>
+            /// <param name="str">string (result of async execution)</param>
+            public void Visit(string str)
+            {
+                rv += str;
+            }
+
+            //
+            // Summary:
+            //     Performs application-defined tasks associated with freeing, releasing, or resetting
+            //     unmanaged resources.
+            public void Dispose()
+            {
+
+            }
+        }
+
         private void OnPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             switch (e.PropertyName)
             {
                 case "Address":
                     AddressEditable = Address;
+                    break;
+
+                case "AddressEditable":
                     break;
 
                 case "WebBrowser":
@@ -191,8 +222,40 @@ namespace CefSharp.Wpf.Example.ViewModels
                                 browser.Dispatcher.BeginInvoke((Action)(() => browser.Focus()));
                             }
                         };
-                    }
 
+                            WebBrowser.FrameLoadEnd += async (s, args) =>
+                            {
+                                FrameLoadEndEventArgs a = args as FrameLoadEndEventArgs;
+                        string rv = "";
+
+        SV vis = new SV(ref rv);
+                            a.Frame.GetSource(vis);
+                            rv += "xxxxxxxx";
+                            bool d = a.Browser.HasDocument;
+                            if (a.Browser.MainFrame == a.Frame)
+                            {
+                                JavascriptResponse x = await a.Frame.EvaluateScriptAsync("debugger; ");
+                            }
+                        };
+                    }
+                    break;
+
+                case "StatusMessage":
+                    break;
+
+                case "OutputMessage":
+                    break;
+
+                case "ShowSidebar":
+                    break;
+
+                case "Title":
+                    break;
+
+                case "EvaluateJavaScriptResult":
+                    break;
+
+                default:
                     break;
             }
         }
@@ -219,6 +282,7 @@ namespace CefSharp.Wpf.Example.ViewModels
         {
             var postData = System.Text.Encoding.Default.GetBytes("test=123&data=456");
 
+            // https://github.com/cefsharp/CefSharp/issues/2705
             WebBrowser.LoadUrlWithPostData("https://cefsharp.com/PostDataTest.html", postData);
         }
     }

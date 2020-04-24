@@ -1,6 +1,6 @@
 image: Visual Studio 2015
 
-version: 73.1.130-CI{build}
+version: 81.2.210-CI{build}
 
 clone_depth: 10
 
@@ -15,11 +15,13 @@ skip_commits:
 build_script:
   - ps: .\build.ps1
 
-# Disable tests
-test: off
+# Test our Release x64 build
+test:
+  assemblies:
+    - CefSharp.Test\bin\x64\Release\CefSharp.Test.dll
 
 artifacts:
-  - path: NuGet\*.nupkg
+  - path: NuGet\**\*.nupkg
     name: nupkgfiles
 
 # Publish to myget.org feed
@@ -27,7 +29,7 @@ deploy:
   provider: NuGet
   server: https://www.myget.org/F/cefsharp/api/v2/package
   api_key:
-    secure: q//EEhpYkeC7JaxBiK6ebPFiF3ixBi62pNWk0p7UIh8o/7Tm25DvbZPOoKf9dwsY
+    secure: LjbeBPa+tvVlSWI556Y3gZHVUHee4vM7gBjFJjWXkXXPzFgTVPLn7TYnzWQC2zh7
   skip_symbols: false
   symbol_server: https://www.myget.org/F/cefsharp/api/v2/package
   artifact: nupkgfiles

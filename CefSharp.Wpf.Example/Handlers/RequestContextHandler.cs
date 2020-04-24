@@ -2,11 +2,18 @@
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
+using System.Collections.Generic;
+
 namespace CefSharp.Wpf.Example.Handlers
 {
     public class RequestContextHandler : IRequestContextHandler
     {
-        private ICookieManager customCookieManager;
+        //private readonly ICookieManager customCookieManager;
+
+        IResourceRequestHandler IRequestContextHandler.GetResourceRequestHandler(IBrowser browser, IFrame frame, IRequest request, bool isNavigation, bool isDownload, string requestInitiator, ref bool disableDefaultHandling)
+        {
+            return null;
+        }
 
         bool IRequestContextHandler.OnBeforePluginLoad(string mimeType, string url, bool isMainFrame, string topOriginUrl, WebPluginInfo pluginInfo, ref PluginPolicy pluginPolicy)
         {
@@ -14,28 +21,6 @@ namespace CefSharp.Wpf.Example.Handlers
             //return true;
 
             return false;
-        }
-
-        ICookieManager IRequestContextHandler.GetCookieManager()
-        {
-            if (customCookieManager == null)
-            {
-                //In memory cookie manager	
-                //customCookieManager = new CookieManager(null, persistSessionCookies: false, callback: null);
-
-                //Store cookies in cookies directory (user must have write permission to this folder)
-                customCookieManager = new CookieManager("cookies", persistSessionCookies: false, callback: null);
-            }
-
-            return customCookieManager;
-
-            //NOTE: DO NOT RETURN A NEW COOKIE MANAGER EVERY TIME
-            //This method will be called many times, you should return the same cookie manager within the scope
-            //of the RequestContext (unless you REALLY know what your doing)
-            //return new CookieManager("cookies", persistSessionCookies: false, callback: null);
-
-            //Default to using the Global cookieManager (default)
-            //return null;
         }
 
         void IRequestContextHandler.OnRequestContextInitialized(IRequestContext requestContext)
@@ -53,8 +38,16 @@ namespace CefSharp.Wpf.Example.Handlers
             //    ["mode"] = "fixed_servers",
             //    ["server"] = "scheme://host:port"
             //};
+            //
+            // Example:
+            //		[0]	{[mode, fixed_servers]}
+            //      [1] {[server, http=127.0.0.1:8118;https=127.0.0.1:8118]}
+            //
             //string errorMessage;
             //bool success = requestContext.SetPreference("proxy", v, out errorMessage);
+
+            var p = requestContext.GetPreference("proxy");
+            var v = p as Dictionary<string, object>;
         }
     }
 }

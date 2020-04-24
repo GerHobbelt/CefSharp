@@ -6,9 +6,14 @@
 
 #include "ManagedCefBrowserAdapter.h"
 #include "WindowInfo.h"
-#include "Internals/Messaging/Messages.h"
-#include "Internals/CefFrameWrapper.h"
-#include "Internals/CefSharpBrowserWrapper.h"
+#include "Internals\Messaging\Messages.h"
+#include "Internals\CefFrameWrapper.h"
+#include "Internals\CefBrowserWrapper.h"
+#include "Internals\Serialization\Primitives.h"
+#include "Internals\Serialization\JsObjectsSerialization.h"
+
+using namespace CefSharp::Internals::Serialization;
+using namespace CefSharp::Internals::Messaging;
 
 using namespace CefSharp::Internals::Messaging;
 
@@ -34,19 +39,71 @@ void ManagedCefBrowserAdapter::CreateBrowser(IWindowInfo^ windowInfo, BrowserSet
             "BrowserSettings created by CefSharp are automatically disposed, to control the lifecycle create and set your own instance.");
     }
 
+    CefRefPtr<CefDictionaryValue> extraInfo = CefDictionaryValue::Create();
+    auto legacyBindingEnabled = false;
+
+    if (CefSharpSettings::LegacyJavascriptBindingEnabled)
+    {
+        auto objectRepository = JavascriptObjectRepository;
+
+        legacyBindingEnabled = objectRepository->HasBoundObjects;
+
+        //For legacy binding we only add values if we have bond objects
+        if (legacyBindingEnabled)
+        {
+            auto listValue = CefListValue::Create();
+
+            SerializeJsObjects(objectRepository->GetObjects(nullptr), listValue, 0);
+
+            extraInfo->SetList("LegacyBindingObjects", listValue);
+        }
+    }
+
+    extraInfo->SetBool("LegacyBindingEnabled", legacyBindingEnabled);
+
     if (!CefBrowserHost::CreateBrowser(*cefWindowInfoWrapper->GetWindowInfo(), _clientAdapter.get(), addressNative,
-        *browserSettings->_browserSettings, static_cast<CefRefPtr<CefRequestContext>>(requestContext)))
+        *browserSettings->_browserSettings, extraInfo, static_cast<CefRefPtr<CefRequestContext>>(requestContext)))
     {
         throw gcnew InvalidOperationException("CefBrowserHost::CreateBrowser call failed, review the CEF log file for more details.");
     }
 
-    //Dispose of BrowserSettings if we created it, if user created then they're responsible
-    if (browserSettings->FrameworkCreated)
-    {
-        delete browserSettings;
-    }
-
     delete windowInfo;
+}
+
+// NOTE: This was moved out of OnAfterBrowserCreated to prevent the System.ServiceModel assembly from being loaded when WCF is not enabled.
+__declspec(noinline) void ManagedCefBrowserAdapter::InitializeBrowserProcessServiceHost(IBrowser^ browser)
+{
+    _browserProcessServiceHost = gcnew BrowserProcessServiceHost(_javaScriptObjectRepository, Process::GetCurrentProcess()->Id, browser->Identifier, _javascriptCallbackFactory);
+    //NOTE: Attempt to solve timing issue where browser is opened and rapidly disposed. In some cases a call to Open throws
+    // an exception about the process already being closed. Two relevant issues are #862 and #804.
+    if (_browserProcessServiceHost->State == CommunicationState::Created)
+    {
+        try
+        {
+            _browserProcessServiceHost->Open();
+        }
+        catch (Exception^)
+        {
+            //Ignore exception as it's likely cause when the browser is closing
+        }
+    }
+}
+
+// NOTE: This was moved out of ~ManagedCefBrowserAdapter to prevent the System.ServiceModel assembly from being loaded when WCF is not enabled.
+__declspec(noinline) void ManagedCefBrowserAdapter::DisposeBrowserProcessServiceHost()
+{
+    if (_browserProcessServiceHost != nullptr)
+    {
+        if (CefSharpSettings::WcfTimeout > TimeSpan::Zero)
+        {
+            _browserProcessServiceHost->Close(CefSharpSettings::WcfTimeout);
+        }
+        else
+        {
+            _browserProcessServiceHost->Abort();
+        }
+        _browserProcessServiceHost = nullptr;
+    }
 }
 
 void ManagedCefBrowserAdapter::OnAfterBrowserCreated(IBrowser^ browser)
@@ -61,20 +118,7 @@ void ManagedCefBrowserAdapter::OnAfterBrowserCreated(IBrowser^ browser)
 
         if (CefSharpSettings::WcfEnabled)
         {
-            _browserProcessServiceHost = gcnew BrowserProcessServiceHost(_javaScriptObjectRepository, Process::GetCurrentProcess()->Id, browser->Identifier, _javascriptCallbackFactory);
-            //NOTE: Attempt to solve timing issue where browser is opened and rapidly disposed. In some cases a call to Open throws
-            // an exception about the process already being closed. Two relevant issues are #862 and #804.
-            if (_browserProcessServiceHost->State == CommunicationState::Created)
-            {
-                try
-                {
-                    _browserProcessServiceHost->Open();
-                }
-                catch (Exception^)
-                {
-                    //Ignore exception as it's likely cause when the browser is closing
-                }
-            }
+            InitializeBrowserProcessServiceHost(browser);
         }
 
         if (_webBrowserInternal != nullptr)
@@ -117,7 +161,7 @@ JavascriptObjectRepository^ ManagedCefBrowserAdapter::JavascriptObjectRepository
     return _javaScriptObjectRepository;
 }
 
-MethodRunnerQueue^ ManagedCefBrowserAdapter::MethodRunnerQueue::get()
+IMethodRunnerQueue^ ManagedCefBrowserAdapter::MethodRunnerQueue::get()
 {
     return _methodRunnerQueue;
 }

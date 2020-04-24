@@ -8,9 +8,9 @@
 
 namespace CefSharp
 {
-    void NativeMethodWrapper::CopyMemoryUsingHandle(IntPtr dest, IntPtr src, int numberOfBytes)
+    void NativeMethodWrapper::MemoryCopy(IntPtr dest, IntPtr src, int numberOfBytes)
     {
-        CopyMemory(dest.ToPointer(), src.ToPointer(), numberOfBytes);
+        RtlCopyMemory(dest.ToPointer(), src.ToPointer(), numberOfBytes);
     }
 
     bool NativeMethodWrapper::IsFocused(IntPtr handle)
@@ -44,5 +44,18 @@ namespace CefSharp
         HWND newParentHwnd = static_cast<HWND>(newParent.ToPointer());
 
         SetParent(childHwnd, newParentHwnd);
+    }
+
+    void NativeMethodWrapper::RemoveExNoActivateStyle(IntPtr browserHwnd)
+    {
+        HWND hwnd = static_cast<HWND>(browserHwnd.ToPointer());
+
+        auto exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+
+        if (exStyle & WS_EX_NOACTIVATE)
+        {
+            //Remove WS_EX_NOACTIVATE
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_NOACTIVATE);
+        }
     }
 }

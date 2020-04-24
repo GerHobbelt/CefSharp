@@ -107,6 +107,15 @@
     <ClInclude Include="Wrapper\V8Context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="JavascriptPostMessageHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SubProcessApp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BindObjectAsyncHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyInfo.cpp">
@@ -171,6 +180,12 @@
     </ClCompile>
     <ClCompile Include="Wrapper\Browser.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WcfBrowserSubprocessExecutable.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BrowserSubprocessExecutable.h">
+      <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -13,16 +13,19 @@ namespace CefSharp.Example.Handlers
     public class BrowserProcessHandler : IBrowserProcessHandler
     {
         /// <summary>
+        /// The interval between calls to Cef.DoMessageLoopWork
+        /// </summary>
+        protected const int SixtyTimesPerSecond = 1000 / 60;  // 60fps
+        /// <summary>
         /// The maximum number of milliseconds we're willing to wait between calls to OnScheduleMessagePumpWork().
         /// </summary>
-        protected const int MaxTimerDelay = 1000 / 30;  // 30fps
+        protected const int ThirtyTimesPerSecond = 1000 / 30;  //30fps
 
         void IBrowserProcessHandler.OnContextInitialized()
         {
             //The Global CookieManager has been initialized, you can now set cookies
             var cookieManager = Cef.GetGlobalCookieManager();
-            cookieManager.SetStoragePath("cookies", true);
-            cookieManager.SetSupportedSchemes(new string[] { "custom" });
+            cookieManager.SetSupportedSchemes(new string[] { "custom" }, true);
             if (cookieManager.SetCookie("custom://cefsharp/home.html", new Cookie
             {
                 Name = "CefSharpTestCookie",
@@ -87,6 +90,10 @@ namespace CefSharp.Example.Handlers
                 //};
                 //success = context.SetPreference("proxy", v, out errorMessage);
 
+                //TODO: [GHo] this one should list 2 entries when the proxy settings made it through intact.
+                var p = context.GetPreference("proxy");
+                var v = p as Dictionary<string, object>;
+
                 //It's possible to register a scheme handler for the default http and https schemes
                 //In this example we register the FolderSchemeHandlerFactory for https://cefsharp.example
                 //Best to include the domain name, so only requests for that domain are forwarded to your scheme handler
@@ -101,11 +108,11 @@ namespace CefSharp.Example.Handlers
 
         void IBrowserProcessHandler.OnScheduleMessagePumpWork(long delay)
         {
-            //If the delay is greater than the Maximum then use MaxTimerDelay
+            //If the delay is greater than the Maximum then use ThirtyTimesPerSecond
             //instead - we do this to achieve a minimum number of FPS
-            if (delay > MaxTimerDelay)
+            if (delay > ThirtyTimesPerSecond)
             {
-                delay = MaxTimerDelay;
+                delay = ThirtyTimesPerSecond;
             }
             OnScheduleMessagePumpWork((int)delay);
         }

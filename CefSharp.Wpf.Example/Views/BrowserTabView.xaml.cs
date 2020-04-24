@@ -12,6 +12,7 @@ using CefSharp.Example;
 using CefSharp.Example.Handlers;
 using CefSharp.Example.JavascriptBinding;
 using CefSharp.Example.ModelBinding;
+using CefSharp.Example.PostMessage;
 using CefSharp.Wpf.Example.Handlers;
 using CefSharp.Wpf.Example.ViewModels;
 
@@ -28,18 +29,7 @@ namespace CefSharp.Wpf.Example.Views
 
             //browser.BrowserSettings.BackgroundColor = Cef.ColorSetARGB(0, 255, 255, 255);
 
-            browser.RequestHandler = new RequestHandler();
-
-            //See https://github.com/cefsharp/CefSharp/issues/2246 for details on the two different binding options
-            if (CefSharpSettings.LegacyJavascriptBindingEnabled)
-            {
-                browser.RegisterJsObject("bound", new BoundObject(), options: BindingOptions.DefaultBinder);
-            }
-            else
-            {
-                //Objects can still be pre registered, they can also be registered when required, see ResolveObject below
-                //browser.JavascriptObjectRepository.Register("bound", new BoundObject(), isAsync:false, options: BindingOptions.DefaultBinder);
-            }
+            browser.RequestHandler = new ExampleRequestHandler();
 
             var bindingOptions = new BindingOptions()
             {
@@ -47,20 +37,15 @@ namespace CefSharp.Wpf.Example.Views
                 MethodInterceptor = new MethodInterceptorLogger() // intercept .net methods calls from js and log it
             };
 
-            //See https://github.com/cefsharp/CefSharp/issues/2246 for details on the two different binding options
-            if (CefSharpSettings.LegacyJavascriptBindingEnabled)
-            {
-                browser.RegisterAsyncJsObject("boundAsync", new AsyncBoundObject(), options: bindingOptions);
-            }
-            else
-            {
-                //Objects can still be pre registered, they can also be registered when required, see ResolveObject below
-                //browser.JavascriptObjectRepository.Register("boundAsync", new AsyncBoundObject(), isAsync: true, options: bindingOptions);
-            }
-
             //To use the ResolveObject below and bind an object with isAsync:false we must set CefSharpSettings.WcfEnabled = true before
             //the browser is initialized.
             CefSharpSettings.WcfEnabled = true;
+
+            if (CefSharpSettings.LegacyJavascriptBindingEnabled)
+            {
+                browser.JavascriptObjectRepository.Register("bound", new BoundObject(), isAsync: false, options: BindingOptions.DefaultBinder);
+                browser.JavascriptObjectRepository.Register("boundAsync", new AsyncBoundObject(), isAsync: true, options: bindingOptions);
+            }
 
             //If you call CefSharp.BindObjectAsync in javascript and pass in the name of an object which is not yet
             //bound, then ResolveObject will be called, you can then register it
@@ -89,7 +74,9 @@ namespace CefSharp.Wpf.Example.Views
             };
 
             browser.DisplayHandler = new DisplayHandler();
-            browser.LifeSpanHandler = new LifespanHandler();
+            //This LifeSpanHandler implementaion demos hosting a popup in a ChromiumWebBrowser
+            //instance, it's still considered Experimental
+            //browser.LifeSpanHandler = new ExperimentalLifespanHandler();
             browser.MenuHandler = new MenuHandler();
             browser.AccessibilityHandler = new AccessibilityHandler();
             var downloadHandler = new DownloadHandler();
@@ -97,22 +84,32 @@ namespace CefSharp.Wpf.Example.Views
             downloadHandler.OnDownloadUpdatedFired += OnDownloadUpdatedFired;
             browser.DownloadHandler = downloadHandler;
             browser.AudioHandler = new AudioHandler();
+            var loadHandler = new LoadHandler();
+            browser.LoadHandler = loadHandler;
+#if false
+            var requestHandler = new RequestHandler();
+            browser.RequestHandler = requestHandler;
+#endif
 
             //Read an embedded bitmap into a memory stream then register it as a resource you can then load custom://cefsharp/images/beach.jpg
             var beachImageStream = new MemoryStream();
             CefSharp.Example.Properties.Resources.beach.Save(beachImageStream, System.Drawing.Imaging.ImageFormat.Jpeg);
-            browser.RegisterResourceHandler(CefExample.BaseUrl + "/images/beach.jpg", beachImageStream, ResourceHandler.GetMimeType(".jpg"));
+            browser.RegisterResourceHandler(CefExample.BaseUrl + "/images/beach.jpg", beachImageStream, Cef.GetMimeType("jpg"));
 
             var dragHandler = new DragHandler();
             dragHandler.RegionsChanged += OnDragHandlerRegionsChanged;
 
             browser.DragHandler = dragHandler;
             //browser.ResourceHandlerFactory = new InMemorySchemeAndResourceHandlerFactory();
-            //You can specify a custom RequestContext to share settings amount groups of ChromiumWebBrowsers
+            //You can specify a custom RequestContext to share settings among groups of ChromiumWebBrowsers
             //Also this is now the only way to access OnBeforePluginLoad - need to implement IRequestContextHandler
-            //browser.RequestContext = new RequestContext(new RequestContextHandler());
+#if false
+            browser.RequestContext = new RequestContext(new RequestContextHandler());
             //NOTE - This is very important for this example as the default page will not load otherwise
-            //browser.RequestContext.RegisterSchemeHandlerFactory(CefSharpSchemeHandlerFactory.SchemeName, null, new CefSharpSchemeHandlerFactory());
+            browser.RequestContext.RegisterSchemeHandlerFactory(CefSharpSchemeHandlerFactory.SchemeName, null, new CefSharpSchemeHandlerFactory());
+            browser.RequestContext.RegisterSchemeHandlerFactory("https", "cefsharp.example", new CefSharpSchemeHandlerFactory());
+            // ^^^ compare this (limited) set with the CefExample.Init()::settings.RegisterScheme(...) call series in CefExample.cs
+#endif
 
             //You can start setting preferences on a RequestContext that you created straight away, still needs to be called on the CEF UI thread.
             //Cef.UIThreadTaskFactory.StartNew(delegate
@@ -133,16 +130,12 @@ namespace CefSharp.Wpf.Example.Views
                     return;
                 }
 
-                // Don't display an error for external protocols that we allow the OS to
-                // handle. See OnProtocolExecution().
-                //if (args.ErrorCode == CefErrorCode.UnknownUrlScheme)
-                //{
-                //	var url = args.Frame.Url;
-                //	if (url.StartsWith("spotify:"))
-                //	{
-                //		return;
-                //	}
-                //}
+                //Don't display an error for external protocols that we allow the OS to
+                //handle in OnProtocolExecution().
+                if (args.ErrorCode == CefErrorCode.UnknownUrlScheme && args.Frame.Url.StartsWith("mailto"))
+                {
+                    return;
+                }
 
                 // Display a load error message.
                 var errorBody = string.Format("<html><body bgcolor=\"white\"><h2>Failed to load URL {0} with error {1} ({2}).</h2></body></html>",
@@ -152,6 +145,30 @@ namespace CefSharp.Wpf.Example.Views
             };
 
             CefExample.RegisterTestResources(browser);
+
+            browser.JavascriptMessageReceived += OnBrowserJavascriptMessageReceived;
+        }
+
+        private void OnBrowserJavascriptMessageReceived(object sender, JavascriptMessageReceivedEventArgs e)
+        {
+            //Complext objects are initially expresses as IDicionary (in reality it's an ExpandoObject so you can use dynamic)
+            if (typeof(System.Dynamic.ExpandoObject).IsAssignableFrom(e.Message.GetType()))
+            {
+                //You can use dynamic to access properties
+                //dynamic msg = e.Message;
+                //Alternatively you can use the built in Model Binder to convert to a custom model
+                var msg = e.ConvertMessageTo<PostMessageExample>();
+                var callback = msg.Callback;
+                var type = msg.Type;
+                var property = msg.Data.Property;
+
+                callback.ExecuteAsync(type);
+            }
+            else if (e.Message is int)
+            {
+                e.Frame.ExecuteJavaScriptAsync("PostMessageIntTestCallback(" + (int)e.Message + ")");
+            }
+
         }
 
         private void OnBeforeDownloadFired(object sender, DownloadItem e)

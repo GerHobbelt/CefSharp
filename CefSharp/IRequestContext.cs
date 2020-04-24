@@ -44,14 +44,12 @@ namespace CefSharp
 
         /// <summary>
         /// Returns the default cookie manager for this object. This will be the global
-        /// cookie manager if this object is the global request context. Otherwise,
-        /// this will be the default cookie manager used when this request context does
-        /// not receive a value via IRequestContextHandler.GetCookieManager(). 
+        /// cookie manager if this object is the global request context. 
         /// </summary>
         /// <param name="callback">If callback is non-NULL it will be executed asnychronously on the CEF IO thread
         /// after the manager's storage has been initialized.</param>
         /// <returns>Returns the default cookie manager for this object</returns>
-        ICookieManager GetDefaultCookieManager(ICompletionCallback callback);
+        ICookieManager GetCookieManager(ICompletionCallback callback);
 
         /// <summary>
         /// Register a scheme handler factory for the specified schemeName and optional domainName.
@@ -175,6 +173,14 @@ namespace CefSharp
         void ClearCertificateExceptions(ICompletionCallback callback);
 
         /// <summary>
+        /// Clears all HTTP authentication credentials that were added as part of handling
+        /// <see cref="IRequestHandler.GetAuthCredentials"/>.
+        /// </summary>
+        /// <param name="callback">If is non-NULL it will be executed on the CEF UI thread after
+        /// completion. This param is optional</param>
+        void ClearHttpAuthCredentials(ICompletionCallback callback = null);
+
+        /// <summary>
         /// Clears all active and idle connections that Chromium currently has.
         /// This is only recommended if you have released all other CEF objects but
         /// don't yet want to call Cef.Shutdown().
@@ -189,17 +195,6 @@ namespace CefSharp
         /// <param name="origin">host name to resolve</param>
         /// <returns>A task that represents the Resoolve Host operation. The value of the TResult parameter contains ResolveCallbackResult.</returns>
         Task<ResolveCallbackResult> ResolveHostAsync(Uri origin);
-
-        /// <summary>
-        /// Attempts to resolve origin to a list of associated IP addresses using
-        /// cached data. This method must be called on the CEF IO thread. Use
-        /// Cef.IOThreadTaskFactory to execute on that thread.
-        /// </summary>
-        /// <param name="origin">host name to resolve</param>
-        /// <param name="resolvedIpAddresses">list of resolved IP
-        /// addresses or empty list if no cached data is available.</param>
-        /// <returns> Returns <see cref="CefErrorCode.None"/> on success</returns>
-        CefErrorCode ResolveHostCached(Uri origin, out IList<string> resolvedIpAddresses);
 
         /// <summary>
         /// Returns true if this context was used to load the extension identified by extensionId. Other contexts sharing the same storage will also have access to the extension (see HasExtension).

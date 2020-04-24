@@ -13,7 +13,10 @@ namespace CefSharp.Wpf.Example.Handlers
 {
     public class MenuHandler : IContextMenuHandler
     {
-        void IContextMenuHandler.OnBeforeContextMenu(IWebBrowser browserControl, IBrowser browser, IFrame frame, IContextMenuParams parameters, IMenuModel model)
+        private const int ShowDevTools = 26501;
+        private const int CloseDevTools = 26502;
+
+        void IContextMenuHandler.OnBeforeContextMenu(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IContextMenuParams parameters, IMenuModel model)
         {
             Console.WriteLine("Context menu opened");
             Console.WriteLine(parameters.MisspelledWord);
@@ -23,22 +26,25 @@ namespace CefSharp.Wpf.Example.Handlers
                 model.AddSeparator();
             }
 
-            model.AddItem((CefMenuCommand)26501, "Show DevTools");
-            model.AddItem((CefMenuCommand)26502, "Close DevTools");
+            //Add new custom menu items
+            model.AddItem((CefMenuCommand)ShowDevTools, "Show DevTools");
+            model.AddItem((CefMenuCommand)CloseDevTools, "Close DevTools");
 
+            //Removing existing menu item
+            //bool removed = model.Remove(CefMenuCommand.ViewSource); // Remove "View Source" option
 
             //To disable context mode then clear
             // model.Clear();
         }
 
-        bool IContextMenuHandler.OnContextMenuCommand(IWebBrowser browserControl, IBrowser browser, IFrame frame, IContextMenuParams parameters, CefMenuCommand commandId, CefEventFlags eventFlags)
+        bool IContextMenuHandler.OnContextMenuCommand(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IContextMenuParams parameters, CefMenuCommand commandId, CefEventFlags eventFlags)
         {
-            if (commandId == (CefMenuCommand)26501)
+            if ((int)commandId == ShowDevTools)
             {
                 browser.GetHost().ShowDevTools();
                 return true;
             }
-            if (commandId == (CefMenuCommand)26502)
+            if ((int)commandId == CloseDevTools)
             {
                 browser.GetHost().CloseDevTools();
                 return true;
@@ -47,28 +53,28 @@ namespace CefSharp.Wpf.Example.Handlers
             return false;
         }
 
-        void IContextMenuHandler.OnContextMenuDismissed(IWebBrowser browserControl, IBrowser browser, IFrame frame)
+        void IContextMenuHandler.OnContextMenuDismissed(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame)
         {
-            var chromiumWebBrowser = (ChromiumWebBrowser)browserControl;
+            var webBrowser = (ChromiumWebBrowser)chromiumWebBrowser;
 
-            chromiumWebBrowser.Dispatcher.Invoke(() =>
+            webBrowser.Dispatcher.Invoke(() =>
             {
-                chromiumWebBrowser.ContextMenu = null;
+                webBrowser.ContextMenu = null;
             });
         }
 
-        bool IContextMenuHandler.RunContextMenu(IWebBrowser browserControl, IBrowser browser, IFrame frame, IContextMenuParams parameters, IMenuModel model, IRunContextMenuCallback callback)
+        bool IContextMenuHandler.RunContextMenu(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IContextMenuParams parameters, IMenuModel model, IRunContextMenuCallback callback)
         {
             //NOTE: Return false to use the built in Context menu - in WPF this requires you integrate into your existing message loop, read the General Usage Guide for more details
             //https://github.com/cefsharp/CefSharp/wiki/General-Usage#multithreadedmessageloop
             //return false;
 
-            var chromiumWebBrowser = (ChromiumWebBrowser)browserControl;
+            var webBrowser = (ChromiumWebBrowser)chromiumWebBrowser;
 
             //IMenuModel is only valid in the context of this method, so need to read the values before invoking on the UI thread
             var menuItems = GetMenuItems(model).ToList();
 
-            chromiumWebBrowser.Dispatcher.Invoke(() =>
+            webBrowser.Dispatcher.Invoke(() =>
             {
                 var menu = new ContextMenu
                 {
@@ -199,10 +205,10 @@ namespace CefSharp.Wpf.Example.Handlers
                                     break;
                                 }
                             }
-                        })
+                        }, keepTargetAlive: true)
                     });
                 }
-                chromiumWebBrowser.ContextMenu = menu;
+                webBrowser.ContextMenu = menu;
             });
 
             return true;

@@ -38,6 +38,7 @@ namespace CefSharp.Example
                 { "/BindingTest.html", Resources.BindingTest },
                 { "/BindingTestSingle.html", Resources.BindingTestSingle },
                 { "/LegacyBindingTest.html", Resources.LegacyBindingTest },
+                { "/PostMessageTest.html", Resources.PostMessageTest },
                 { "/ExceptionTest.html", Resources.ExceptionTest },
                 { "/PopupTest.html", Resources.PopupTest },
                 { "/SchemeTest.html", Resources.SchemeTest },
@@ -52,7 +53,9 @@ namespace CefSharp.Example
                 { "/CdmSupportTest.html", Resources.CdmSupportTest },
                 { "/Recaptcha.html", Resources.Recaptcha },
                 { "/UnicodeExampleGreaterThan32kb.html", Resources.UnicodeExampleGreaterThan32kb },
-                { "/UnocodeExampleEqualTo32kb.html", Resources.UnocodeExampleEqualTo32kb }
+                { "/UnocodeExampleEqualTo32kb.html", Resources.UnocodeExampleEqualTo32kb },
+                { "/JavascriptCallbackTest.html", Resources.JavascriptCallbackTest },
+                { "/BindingTestsAsyncTask.html", Resources.BindingTestsAsyncTask }
             };
         }
 
@@ -71,10 +74,19 @@ namespace CefSharp.Example
             if (fileName.EndsWith("CefSharp.Core.xml", StringComparison.OrdinalIgnoreCase))
             {
                 //Convenient helper method to lookup the mimeType
-                var mimeType = ResourceHandler.GetMimeType(".xml");
+                var mimeType = Cef.GetMimeType("xml");
                 //Load a resource handler for CefSharp.Core.xml
                 //mimeType is optional and will default to text/html
                 return ResourceHandler.FromFilePath("CefSharp.Core.xml", mimeType, autoDisposeStream: true);
+            }
+
+            if (fileName.EndsWith("Logo.png", StringComparison.OrdinalIgnoreCase))
+            {
+                //Convenient helper method to lookup the mimeType
+                var mimeType = Cef.GetMimeType("png");
+                //Load a resource handler for Logo.png
+                //mimeType is optional and will default to text/html
+                return ResourceHandler.FromFilePath("..\\..\\..\\..\\CefSharp.WinForms.Example\\Resources\\chromium-256.png", mimeType, autoDisposeStream: true);
             }
 
             if (uri.Host == "cefsharp.com" && schemeName == "https" && (string.Equals(fileName, "/PostDataTest.html", StringComparison.OrdinalIgnoreCase) ||
@@ -85,14 +97,14 @@ namespace CefSharp.Example
 
             if (string.Equals(fileName, "/EmptyResponseFilterTest.html", StringComparison.OrdinalIgnoreCase))
             {
-                return ResourceHandler.FromString("", ".html");
+                return ResourceHandler.FromString("", mimeType: ResourceHandler.DefaultMimeType);
             }
 
             string resource;
             if (ResourceDictionary.TryGetValue(fileName, out resource) && !string.IsNullOrEmpty(resource))
             {
                 var fileExtension = Path.GetExtension(fileName);
-                return ResourceHandler.FromString(resource, includePreamble: true, mimeType: ResourceHandler.GetMimeType(fileExtension));
+                return ResourceHandler.FromString(resource, includePreamble: true, mimeType: Cef.GetMimeType(fileExtension));
             }
 
             return null;

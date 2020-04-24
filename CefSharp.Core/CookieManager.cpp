@@ -5,7 +5,7 @@
 #include "Stdafx.h"
 #include "CookieManager.h"
 
-#include "Internals\CookieVisitor.h"
+#include "Internals\CefCookieVisitorAdapter.h"
 #include "Internals\CefCompletionCallbackAdapter.h"
 #include "Internals\CefSetCookieCallbackAdapter.h"
 #include "Internals\CefDeleteCookiesCallbackAdapter.h"
@@ -57,29 +57,20 @@ namespace CefSharp
         return _cookieManager->SetCookie(StringUtils::ToNative(url), c, wrapper);
     }
 
-    bool CookieManager::SetStoragePath(String^ path, bool persistSessionCookies, ICompletionCallback^ callback)
+    void CookieManager::SetSupportedSchemes(cli::array<String^>^ schemes, bool includeDefaults, ICompletionCallback^ callback)
     {
         ThrowIfDisposed();
 
         CefRefPtr<CefCompletionCallback> wrapper = callback == nullptr ? NULL : new CefCompletionCallbackAdapter(callback);
 
-        return _cookieManager->SetStoragePath(StringUtils::ToNative(path), persistSessionCookies, wrapper);
-    }
-
-    void CookieManager::SetSupportedSchemes(cli::array<String^>^ schemes, ICompletionCallback^ callback)
-    {
-        ThrowIfDisposed();
-
-        CefRefPtr<CefCompletionCallback> wrapper = callback == nullptr ? NULL : new CefCompletionCallbackAdapter(callback);
-
-        _cookieManager->SetSupportedSchemes(StringUtils::ToNative(schemes), wrapper);
+        _cookieManager->SetSupportedSchemes(StringUtils::ToNative(schemes), includeDefaults, wrapper);
     }
 
     bool CookieManager::VisitAllCookies(ICookieVisitor^ visitor)
     {
         ThrowIfDisposed();
 
-        CefRefPtr<CookieVisitor> cookieVisitor = new CookieVisitor(visitor);
+        CefRefPtr<CefCookieVisitorAdapter> cookieVisitor = new CefCookieVisitorAdapter(visitor);
 
         return _cookieManager->VisitAllCookies(cookieVisitor);
     }
@@ -88,7 +79,7 @@ namespace CefSharp
     {
         ThrowIfDisposed();
 
-        CefRefPtr<CookieVisitor> cookieVisitor = new CookieVisitor(visitor);
+        CefRefPtr<CefCookieVisitorAdapter> cookieVisitor = new CefCookieVisitorAdapter(visitor);
 
         return _cookieManager->VisitUrlCookies(StringUtils::ToNative(url), includeHttpOnly, cookieVisitor);
     }

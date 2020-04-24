@@ -3,6 +3,7 @@
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -33,7 +34,7 @@ namespace CefSharp.Internals
     {
         public const string AllObjects = "All";
 
-        private static long lastId;
+        private static long LastId;
 
         public event EventHandler<JavascriptBindingEventArgs> ResolveObject;
         public event EventHandler<JavascriptBindingCompleteEventArgs> ObjectBoundInJavascript;
@@ -44,7 +45,7 @@ namespace CefSharp.Internals
         /// this is done to speed up finding the object in O(1) time
         /// instead of traversing the JavaScriptRootObject tree.
         /// </summary>
-        private readonly Dictionary<long, JavascriptObject> objects = new Dictionary<long, JavascriptObject>();
+        private readonly ConcurrentDictionary<long, JavascriptObject> objects = new ConcurrentDictionary<long, JavascriptObject>();
 
         /// <summary>
         /// Has the browser this repository is associated with been initilized (set in OnAfterCreated)
@@ -80,7 +81,7 @@ namespace CefSharp.Internals
             {
                 RaiseResolveObjectEvent(AllObjects);
 
-                return objects.Values.ToList();
+                return objects.Values.Where(x => x.RootObject).ToList();
             }
 
             foreach (var name in names)
@@ -91,7 +92,7 @@ namespace CefSharp.Internals
                 }
             }
 
-            var objectsByName = objects.Values.Where(x => names.Contains(x.JavascriptName)).ToList();
+            var objectsByName = objects.Values.Where(x => names.Contains(x.JavascriptName) && x.RootObject).ToList();
 
             //TODO: JSB Add another event that signals when no object matching a name
             //in the list was provided.
@@ -117,11 +118,17 @@ namespace CefSharp.Internals
             }
         }
 
-        private JavascriptObject CreateJavascriptObject(bool camelCaseJavascriptNames)
+        private JavascriptObject CreateJavascriptObject(bool camelCaseJavascriptNames, bool rootObject)
         {
-            var id = Interlocked.Increment(ref lastId);
+            var id = Interlocked.Increment(ref LastId);
 
-            var result = new JavascriptObject { Id = id, CamelCaseJavascriptNames = camelCaseJavascriptNames };
+            var result = new JavascriptObject
+            {
+                Id = id,
+                CamelCaseJavascriptNames = camelCaseJavascriptNames,
+                RootObject = rootObject
+            };
+
             objects[id] = result;
 
             return result;
@@ -167,7 +174,7 @@ namespace CefSharp.Internals
             }
 
             var camelCaseJavascriptNames = options == null ? true : options.CamelCaseJavascriptNames;
-            var jsObject = CreateJavascriptObject(camelCaseJavascriptNames);
+            var jsObject = CreateJavascriptObject(camelCaseJavascriptNames, rootObject: true);
             jsObject.Value = value;
             jsObject.Name = name;
             jsObject.JavascriptName = name;
@@ -189,7 +196,8 @@ namespace CefSharp.Internals
             {
                 if (string.Equals(kvp.Value.Name, name, StringComparison.OrdinalIgnoreCase))
                 {
-                    objects.Remove(kvp.Key);
+                    JavascriptObject obj;
+                    objects.TryRemove(kvp.Key, out obj);
 
                     return true;
                 }
@@ -249,22 +257,7 @@ namespace CefSharp.Internals
                     parameters = paramList.ToArray();
                 }
 
-                //Check for parameter count missmatch between the parameters on the javascript function and the
-                //number of parameters on the bound object method. (This is relevant for methods that have default values)
-                //NOTE it's possible to have default params and a paramArray, so check missing params last
-                var missingParams = method.ParameterCount - parameters.Length;
-
-                if (missingParams > 0)
-                {
-                    var paramList = new List<object>(parameters);
-
-                    for (var i = 0; i < missingParams; i++)
-                    {
-                        paramList.Add(Type.Missing);
-                    }
-
-                    parameters = paramList.ToArray();
-                }
+                int missingParams = 0;
 
                 try
                 {
@@ -272,22 +265,29 @@ namespace CefSharp.Internals
                     {
                         for (var i = 0; i < parameters.Length; i++)
                         {
-                            if (parameters[i] != null)
-                            {
-                                var paramExpectedType = method.Parameters[i].Type;
-                                var paramType = parameters[i].GetType();
-                                if (typeof(IDictionary<string, object>).IsAssignableFrom(paramType))
-                                {
-                                    var dictionary = (IDictionary<string, object>)parameters[i];
-                                    parameters[i] = obj.Binder.Bind(dictionary, paramExpectedType);
-                                }
-                                else if (typeof(IList<object>).IsAssignableFrom(paramType))
-                                {
-                                    var list = (IList<object>)parameters[i];
-                                    parameters[i] = obj.Binder.Bind(list, paramExpectedType);
-                                }
-                            }
+                            var paramExpectedType = method.Parameters[i].Type;
+
+                            //Previously only IDictionary<string, object> and IList<object> called Binder.Bind
+                            //Now every param is bound to allow for type conversion
+                            parameters[i] = obj.Binder.Bind(parameters[i], paramExpectedType);
                         }
+                    }
+
+                    //Check for parameter count missmatch between the parameters on the javascript function and the
+                    //number of parameters on the bound object method. (This is relevant for methods that have default values)
+                    //NOTE it's possible to have default params and a paramArray, so check missing params last
+                    missingParams = method.ParameterCount - parameters.Length;
+
+                    if (missingParams > 0)
+                    {
+                        var paramList = new List<object>(parameters);
+
+                        for (var i = 0; i < missingParams; i++)
+                        {
+                            paramList.Add(Type.Missing);
+                        }
+
+                        parameters = paramList.ToArray();
                     }
 
                     if (obj.MethodInterceptor == null)
@@ -296,7 +296,18 @@ namespace CefSharp.Internals
                     }
                     else
                     {
-                        result = obj.MethodInterceptor.Intercept(() => method.Function(obj.Value, parameters), method.ManagedName);
+                        result = obj.MethodInterceptor.Intercept((p) =>
+                        {
+                            try
+                            {
+                                var rv = method.Function(obj.Value, p);
+                                return rv;
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new InvalidOperationException("MethodInterceptor.Intercept failure", ex);
+                            }
+                        }, parameters, method.ManagedName);
                     }
                 }
                 catch (Exception e)
@@ -309,7 +320,7 @@ namespace CefSharp.Internals
                 //JavascriptObject and they are never released
                 if (!obj.IsAsync && result != null && IsComplexType(result.GetType()))
                 {
-                    var jsObject = CreateJavascriptObject(obj.CamelCaseJavascriptNames);
+                    var jsObject = CreateJavascriptObject(obj.CamelCaseJavascriptNames, rootObject: false);
                     jsObject.Value = result;
                     jsObject.Name = "FunctionResult(" + name + ")";
                     jsObject.JavascriptName = jsObject.Name;
@@ -447,7 +458,7 @@ namespace CefSharp.Internals
                     var jsProperty = CreateJavaScriptProperty(propertyInfo, camelCaseJavascriptNames);
                     if (jsProperty.IsComplexType)
                     {
-                        var jsObject = CreateJavascriptObject(camelCaseJavascriptNames);
+                        var jsObject = CreateJavascriptObject(camelCaseJavascriptNames, rootObject: false);
                         jsObject.Name = propertyInfo.Name;
                         jsObject.JavascriptName = GetJavascriptName(propertyInfo.Name, camelCaseJavascriptNames);
                         jsObject.Value = jsProperty.GetValue(obj.Value);

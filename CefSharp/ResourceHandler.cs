@@ -8,6 +8,7 @@ using System.Collections.Specialized;
 using System.IO;
 using System.Net;
 using System.Text;
+using CefSharp.Callback;
 
 namespace CefSharp
 {
@@ -23,6 +24,17 @@ namespace CefSharp
         /// MimeType to be used if none provided
         /// </summary>
         public const string DefaultMimeType = "text/html";
+
+        /// <summary>
+        /// We reuse a temp buffer where possible for copying the data from the stream
+        /// into the output stream
+        /// </summary>
+        private byte[] tempBuffer;
+
+        /// <summary>
+        /// Gets or sets the Charset
+        /// </summary>
+        public string Charset { get; set; }
 
         /// <summary>
         /// Gets or sets the Mime Type.
@@ -78,7 +90,8 @@ namespace CefSharp
         /// <param name="stream">Optional Stream - must be set at some point to provide a valid response</param>
         /// <param name="autoDisposeStream">When true the Stream will be disposed when this instance is Diposed, you will
         /// be unable to use this ResourceHandler after the Stream has been disposed</param>
-        public ResourceHandler(string mimeType = DefaultMimeType, Stream stream = null, bool autoDisposeStream = false)
+        /// <param name="charset">response charset</param>
+        public ResourceHandler(string mimeType = DefaultMimeType, Stream stream = null, bool autoDisposeStream = false, string charset = null)
         {
             if (string.IsNullOrEmpty(mimeType))
             {
@@ -91,6 +104,139 @@ namespace CefSharp
             Headers = new NameValueCollection();
             Stream = stream;
             AutoDisposeStream = autoDisposeStream;
+            Charset = charset;
+        }
+
+        bool IResourceHandler.Open(IRequest request, out bool handleRequest, ICallback callback)
+        {
+            var processRequest = ProcessRequestAsync(request, callback);
+
+            //Process the request in an async fashion
+            if (processRequest == CefReturnValue.ContinueAsync)
+            {
+                handleRequest = false;
+
+                return true;
+            }
+            else if (processRequest == CefReturnValue.Continue)
+            {
+                handleRequest = true;
+
+                return true;
+            }
+
+            //Cancel Request
+            handleRequest = true;
+
+            return false;
+        }
+
+        bool IResourceHandler.Skip(long bytesToSkip, out long bytesSkipped, IResourceSkipCallback callback)
+        {
+            //No Stream or Stream cannot seek then we indicate failure
+            if (Stream == null || !Stream.CanSeek)
+            {
+                //Indicate failure
+                bytesSkipped = -2;
+
+                return false;
+            }
+
+            bytesSkipped = bytesToSkip;
+
+            Stream.Seek(bytesToSkip, SeekOrigin.Current);
+
+            return false;
+        }
+
+        bool IResourceHandler.Read(Stream dataOut, out int bytesRead, IResourceReadCallback callback)
+        {
+            bytesRead = 0;
+
+            //We don't need the callback, as it's an unmanaged resource we should dispose it (could wrap it in a using statement).
+            callback.Dispose();
+
+            if (Stream == null)
+            {
+                return false;
+            }
+
+            //Data out represents an underlying unmanaged buffer (typically 64kb in size).
+            //We reuse a temp buffer where possible
+            if (tempBuffer == null || tempBuffer.Length < dataOut.Length)
+            {
+                tempBuffer = new byte[dataOut.Length];
+            }
+
+            //Only read the number of bytes that can be written to dataOut
+            bytesRead = Stream.Read(tempBuffer, 0, (int)dataOut.Length);
+
+            // To indicate response completion set bytesRead to 0 and return false
+            if (bytesRead == 0)
+            {
+                return false;
+            }
+
+            //We need to use bytesRead instead of tempbuffer.Length otherwise
+            //garbage from the previous copy would be written to dataOut
+            dataOut.Write(tempBuffer, 0, bytesRead);
+
+            return bytesRead > 0;
+        }
+
+        void IResourceHandler.GetResponseHeaders(IResponse response, out long responseLength, out string redirectUrl)
+        {
+            redirectUrl = null;
+            responseLength = -1;
+
+            response.MimeType = MimeType;
+            response.StatusCode = StatusCode;
+            response.StatusText = StatusText;
+            response.Headers = Headers;
+
+            if (!string.IsNullOrEmpty(Charset))
+            {
+                response.Charset = Charset;
+            }
+
+            if (ResponseLength.HasValue)
+            {
+                responseLength = ResponseLength.Value;
+            }
+
+            if (Stream != null && Stream.CanSeek)
+            {
+                //ResponseLength property has higher precedence over Stream.Length
+                if (ResponseLength == null || responseLength == 0)
+                {
+                    //If no ResponseLength provided then attempt to infer the length
+                    responseLength = Stream.Length;
+                }
+
+                Stream.Position = 0;
+            };
+        }
+
+        void IResourceHandler.Cancel()
+        {
+            // Prior to Prior to https://bitbucket.org/chromiumembedded/cef/commits/90301bdb7fd0b32137c221f38e8785b3a8ad8aa4
+            // This method was unexpectedly being called during Read (from a different thread),
+            // changes to the threading model were made and I haven't confirmed if this is still
+            // the case.
+            // 
+            // The documentation for Cancel is vaigue and there aren't any examples that
+            // illustrage it's intended use case so for now we'll just keep things
+            // simple and free our resources in Dispose
+        }
+
+        bool IResourceHandler.ProcessRequest(IRequest request, ICallback callback)
+        {
+            throw new NotImplementedException("This method was deprecated and is no longer used.");
+        }
+
+        bool IResourceHandler.ReadResponse(Stream dataOut, out int bytesRead, ICallback callback)
+        {
+            throw new NotImplementedException("This method was deprecated and is no longer used.");
         }
 
         /// <summary>
@@ -106,129 +252,13 @@ namespace CefSharp
         /// <see cref="ICallback.Continue"/> can also be called from inside this method if
         /// header information is available immediately).
         /// To cancel the request return false.</returns>
-        public virtual bool ProcessRequestAsync(IRequest request, ICallback callback)
+        public virtual CefReturnValue ProcessRequestAsync(IRequest request, ICallback callback)
         {
-            callback.Continue();
-
-            return true;
+            return CefReturnValue.Continue;
         }
 
         /// <summary>
-        /// Populate the response stream, response length. When this method is called
-        /// the response should be fully populated with data.
-        /// It is possible to redirect to another url at this point in time.
-        /// NOTE: It's no longer manditory to implement this method, you can simply populate the
-        /// properties of this instance and they will be set by the default implementation. 
-        /// </summary>
-        /// <param name="response">The response object used to set Headers, StatusCode, etc</param>
-        /// <param name="responseLength">length of the response</param>
-        /// <param name="redirectUrl">If set the request will be redirect to specified Url</param>
-        /// <returns>The response stream</returns>
-        public virtual Stream GetResponse(IResponse response, out long responseLength, out string redirectUrl)
-        {
-            redirectUrl = null;
-            responseLength = -1;
-
-            response.MimeType = MimeType;
-            response.StatusCode = StatusCode;
-            response.StatusText = StatusText;
-            response.Headers = Headers;
-
-            if (ResponseLength.HasValue)
-            {
-                responseLength = ResponseLength.Value;
-            }
-            else
-            {
-                //If no ResponseLength provided then attempt to infer the length
-                if (Stream != null && Stream.CanSeek)
-                {
-                    responseLength = Stream.Length;
-                }
-            }
-
-            return Stream;
-        }
-
-        /// <summary>
-        /// Called if the request is cancelled
-        /// </summary>
-        public virtual void Cancel()
-        {
-
-        }
-
-        bool IResourceHandler.ProcessRequest(IRequest request, ICallback callback)
-        {
-            return ProcessRequestAsync(request, callback);
-        }
-
-        void IResourceHandler.GetResponseHeaders(IResponse response, out long responseLength, out string redirectUrl)
-        {
-            if (ErrorCode.HasValue)
-            {
-                responseLength = 0;
-                redirectUrl = null;
-                response.ErrorCode = ErrorCode.Value;
-            }
-            else
-            {
-                Stream = GetResponse(response, out responseLength, out redirectUrl);
-
-                if (Stream != null && Stream.CanSeek)
-                {
-                    //Reset the stream position to 0
-                    Stream.Position = 0;
-                }
-            }
-        }
-
-        bool IResourceHandler.ReadResponse(Stream dataOut, out int bytesRead, ICallback callback)
-        {
-            //We don't need the callback, as it's an unmanaged resource we should dispose it (could wrap it in a using statement).
-            callback.Dispose();
-
-            if (Stream == null)
-            {
-                bytesRead = 0;
-
-                return false;
-            }
-
-            //Data out represents an underlying buffer (typically 32kb in size).
-            var buffer = new byte[dataOut.Length];
-            bytesRead = Stream.Read(buffer, 0, buffer.Length);
-
-            //If bytesRead is 0 then no point attempting a write to dataOut
-            if (bytesRead == 0)
-            {
-                return false;
-            }
-
-            dataOut.Write(buffer, 0, buffer.Length);
-
-            return bytesRead > 0;
-        }
-
-        bool IResourceHandler.CanGetCookie(Cookie cookie)
-        {
-            return true;
-        }
-
-        bool IResourceHandler.CanSetCookie(Cookie cookie)
-        {
-            return true;
-        }
-
-        void IResourceHandler.Cancel()
-        {
-            Cancel();
-
-            Stream = null;
-        }
-
-        /// <summary>
-        /// Gets the resource from the file path specified. Use the <see cref="GetMimeType"/>
+        /// Gets the resource from the file path specified. Use the Cef.GetMimeType()
         /// helper method to lookup the mimeType if required. Uses CefStreamResourceHandler for reading the data
         /// </summary>
         /// <param name="filePath">Location of the file.</param>
@@ -248,8 +278,9 @@ namespace CefSharp
         /// </summary>
         /// <param name="data">data</param>
         /// <param name="mimeType">mimeType</param>
+        /// <param name="charSet">response charset</param>
         /// <returns>IResourceHandler</returns>
-        public static IResourceHandler FromByteArray(byte[] data, string mimeType = null)
+        public static IResourceHandler FromByteArray(byte[] data, string mimeType = null, string charSet = null)
         {
             return new ByteArrayResourceHandler(mimeType ?? DefaultMimeType, data);
         }
@@ -260,6 +291,7 @@ namespace CefSharp
         /// <param name="text">The text.</param>
         /// <param name="fileExtension">The file extension.</param>
         /// <returns>ResourceHandler.</returns>
+        [Obsolete("Use ResourceHandler.FromString(resource, mimeType: Cef.GetMimeType(fileExtension)); instead, this method will be removed")]
         public static IResourceHandler FromString(string text, string fileExtension)
         {
             var mimeType = GetMimeType(fileExtension);
@@ -307,10 +339,11 @@ namespace CefSharp
         /// <param name="mimeType">Type of MIME.</param>
         /// <param name="autoDisposeStream">Dispose of the stream when finished with (you will only be able to serve one
         /// request).</param>
+        /// <param name="charSet">response charset</param>
         /// <returns>ResourceHandler.</returns>
-        public static ResourceHandler FromStream(Stream stream, string mimeType = DefaultMimeType, bool autoDisposeStream = false)
+        public static ResourceHandler FromStream(Stream stream, string mimeType = DefaultMimeType, bool autoDisposeStream = false, string charSet = null)
         {
-            return new ResourceHandler(mimeType, stream, autoDisposeStream);
+            return new ResourceHandler(mimeType, stream, autoDisposeStream, charSet);
         }
 
         /// <summary>
@@ -931,7 +964,31 @@ namespace CefSharp
             {".xtp", "application/octet-stream"},
             {".xwd", "image/x-xwindowdump"},
             {".z", "application/x-compress"},
-            {".zip", "application/x-zip-compressed"}
+            {".zip", "application/x-zip-compressed"},
+
+            // Recently added entries from 
+            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
+            // https://cs.chromium.org/chromium/src/net/base/mime_util.cc?sq=package:chromium&g=0&l=147
+            {".wasm", "application/wasm"},
+            {".ogg", "audio/ogg"},
+            {".oga", "audio/ogg"},
+            {".ogv", "video/ogg"},
+            {".opus", "audio/opus"},
+            {".webm", "video/webm"},
+            {".weba", "audio/webm"},
+            //https://developers.google.com/speed/webp
+            {".webp", "image/webp"},
+            {".epub", "application/epub+zip"},
+            // We'll map .woff to font/woff as application/font-woff is deprecated
+            // https://tools.ietf.org/html/rfc8081#section-4.4.5
+            // Deprecated Alias:  The existing registration "application/font-woff" is deprecated in favor of "font/woff".
+            {".woff", "font/woff"},
+            // https://www.w3.org/TR/WOFF2/#IMT
+            // https://tools.ietf.org/html/rfc8081#section-4.4.6
+            {".woff2", "font/woff2"},
+            //TODO: Mapping should be updated (exists above)
+            //{".ttf", "font/ttf"},
+            {".otf", "font/otf"}
         };
 
         /// <summary>
@@ -940,6 +997,7 @@ namespace CefSharp
         /// <param name="extension">The extension.</param>
         /// <returns>System.String.</returns>
         /// <exception cref="System.ArgumentNullException">extension</exception>
+        [Obsolete("This method is deprecated and will be removed use Cef.GetMimeType(extension); instead. See https://github.com/cefsharp/CefSharp/issues/3041 for details.")]
         public static string GetMimeType(string extension)
         {
             if (extension == null)
@@ -962,8 +1020,10 @@ namespace CefSharp
             if (AutoDisposeStream && Stream != null)
             {
                 Stream.Dispose();
-                Stream = null;
             }
+
+            Stream = null;
+            tempBuffer = null;
         }
     }
 }

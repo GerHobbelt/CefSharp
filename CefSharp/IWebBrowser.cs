@@ -74,6 +74,11 @@ namespace CefSharp
         event EventHandler<LoadingStateChangedEventArgs> LoadingStateChanged;
 
         /// <summary>
+        /// Event handler that will get called when the message that originates from CefSharp.PostMessage
+        /// </summary>
+        event EventHandler<JavascriptMessageReceivedEventArgs> JavascriptMessageReceived;
+
+        /// <summary>
         /// Loads the specified URL.
         /// </summary>
         /// <param name="url">The URL to be loaded.</param>
@@ -151,10 +156,10 @@ namespace CefSharp
         IFocusHandler FocusHandler { get; set; }
 
         /// <summary>
-        /// Implement <see cref="IResourceHandlerFactory" /> and control the loading of resources
+        /// Implement <see cref="IResourceRequestHandlerFactory" /> and control the loading of resources
         /// </summary>
         /// <value>The resource handler factory.</value>
-        IResourceHandlerFactory ResourceHandlerFactory { get; set; }
+        IResourceRequestHandlerFactory ResourceRequestHandlerFactory { get; set; }
 
         /// <summary>
         /// Implement <see cref="IRenderProcessMessageHandler" /> and assign to handle messages from the render process.
@@ -177,8 +182,10 @@ namespace CefSharp
         /// A flag that indicates whether the WebBrowser is initialized (true) or not (false).
         /// </summary>
         /// <value><c>true</c> if this instance is browser initialized; otherwise, <c>false</c>.</value>
-        /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
-        /// binding.</remarks>
+        /// <remarks>In the WPF control there are two IsBrowserInitialized properties, the ChromiumWebBrowser.IsBrowserInitialized
+        /// property is implemented as a Dependency Property and fully supports data binding. This property
+        /// can only be called from the UI Thread. The explicit IWebBrowser.IsBrowserInitialized interface implementation that
+        /// can be called from any Thread.</remarks>
         bool IsBrowserInitialized { get; }
 
         /// <summary>

@@ -15,14 +15,15 @@
 #include <include/cef_origin_whitelist.h>
 #include <include/cef_web_plugin.h>
 #include <include/cef_crash_util.h>
+#include <include/cef_parser.h>
 #include <include/internal/cef_types.h>
 
 #include "Internals/CefSharpApp.h"
-#include "Internals/PluginVisitor.h"
+#include "Internals/CefWebPluginInfoVisitorAdapter.h"
 #include "Internals/CefTaskScheduler.h"
 #include "Internals/CefRegisterCdmCallbackAdapter.h"
 #include "CookieManager.h"
-#include "AbstractCefSettings.h"
+#include "CefSettingsBase.h"
 #include "RequestContext.h"
 
 using namespace System::Collections::Generic;
@@ -32,6 +33,11 @@ using namespace msclr::interop;
 
 namespace CefSharp
 {
+    /// <summary>
+    /// Global CEF methods are exposed through this class. e.g. CefInitalize maps to Cef.Initialize
+    /// CEF API Doc https://magpcss.org/ceforum/apidocs3/projects/(default)/(_globals).html
+    /// This class cannot be inherited.
+    /// </summary>
     public ref class Cef sealed
     {
     private:
@@ -138,7 +144,7 @@ namespace CefSharp
         /// </summary>
         /// <param name="cefSettings">CefSharp configuration settings.</param>
         /// <returns>true if successful; otherwise, false.</returns>
-        static bool Initialize(AbstractCefSettings^ cefSettings)
+        static bool Initialize(CefSettingsBase^ cefSettings)
         {
             auto cefApp = gcnew DefaultApp(nullptr, cefSettings->CefCustomSchemes);
 
@@ -155,7 +161,7 @@ namespace CefSharp
         /// <param name="performDependencyCheck">Check that all relevant dependencies avaliable, throws exception if any are missing</param>
         /// <param name="browserProcessHandler">The handler for functionality specific to the browser process. Null if you don't wish to handle these events</param>
         /// <returns>true if successful; otherwise, false.</returns>
-        static bool Initialize(AbstractCefSettings^ cefSettings, bool performDependencyCheck, IBrowserProcessHandler^ browserProcessHandler)
+        static bool Initialize(CefSettingsBase^ cefSettings, bool performDependencyCheck, IBrowserProcessHandler^ browserProcessHandler)
         {
             auto cefApp = gcnew DefaultApp(browserProcessHandler, cefSettings->CefCustomSchemes);
 
@@ -172,7 +178,7 @@ namespace CefSharp
         /// <param name="performDependencyCheck">Check that all relevant dependencies avaliable, throws exception if any are missing</param>
         /// <param name="cefApp">Implement this interface to provide handler implementations. Null if you don't wish to handle these events</param>
         /// <returns>true if successful; otherwise, false.</returns>
-        static bool Initialize(AbstractCefSettings^ cefSettings, bool performDependencyCheck, IApp^ cefApp)
+        static bool Initialize(CefSettingsBase^ cefSettings, bool performDependencyCheck, IApp^ cefApp)
         {
             if (IsInitialized)
             {
@@ -201,6 +207,9 @@ namespace CefSharp
             UIThreadTaskFactory = gcnew TaskFactory(gcnew CefTaskScheduler(TID_UI));
             IOThreadTaskFactory = gcnew TaskFactory(gcnew CefTaskScheduler(TID_IO));
             FileThreadTaskFactory = gcnew TaskFactory(gcnew CefTaskScheduler(TID_FILE));
+
+            //To allow FolderSchemeHandlerFactory to access GetMimeType we pass in a Func
+            CefSharp::SchemeHandler::FolderSchemeHandlerFactory::GetMimeTypeDelegate = gcnew Func<String^, String^>(&GetMimeType);
 
             CefRefPtr<CefSharpApp> app(new CefSharpApp(cefSettings, cefApp));
             CefMainArgs main_args;
@@ -367,34 +376,38 @@ namespace CefSharp
 
         /// <summary>
         /// Returns the global cookie manager. By default data will be stored at CefSettings.CachePath if specified or in memory otherwise.
-        /// Using this method is equivalent to calling Cef.GetGlobalRequestContext().GetDefaultCookieManager()
-        /// The earlier possible place to access the ICookieManager is in IBrowserProcessHandler.OnContextInitialized.
-        /// Alternative use the ChromiumWebBrowser BrowserInitialized (OffScreen) or IsBrowserInitializedChanged (WinForms/WPF) events.
+        /// Using this method is equivalent to calling Cef.GetGlobalRequestContext().GetCookieManager()
+        /// The cookie managers storage is created in an async fashion, whilst this method may return a cookie manager instance,
+        /// there may be a short delay before you can Get/Write cookies.
+        /// To be sure the cookie manager has been initialized use one of the following
+        /// - Use the GetGlobalCookieManager(ICompletionCallback) overload and access the ICookieManager after
+        ///   ICompletionCallback.OnComplete has been called.
+        /// - Access the ICookieManager instance in IBrowserProcessHandler.OnContextInitialized.
+        /// - Use the ChromiumWebBrowser BrowserInitialized (OffScreen) or IsBrowserInitializedChanged (WinForms/WPF) events.
         /// </summary>
         /// <returns>A the global cookie manager or null if the RequestContext has not yet been initialized.</returns>
         static ICookieManager^ GetGlobalCookieManager()
         {
-            auto cookieManager = CefCookieManager::GetGlobalManager(NULL);
-            if (cookieManager.get())
-            {
-                return gcnew CookieManager(cookieManager);
-            }
-
-            return nullptr;
+            return GetGlobalCookieManager(nullptr);
         }
 
         /// <summary>
-        ///  Returns a cookie manager that neither stores nor retrieves cookies. All
-        /// usage of cookies will be blocked including cookies accessed via the network
-        /// (request/response headers), via JavaScript (document.cookie), and via
-        /// CefCookieManager methods. No cookies will be displayed in DevTools. If you
-        /// wish to only block cookies sent via the network use the IRequestHandler
-        /// CanGetCookies and CanSetCookie methods instead.
+        /// Returns the global cookie manager. By default data will be stored at CefSettings.CachePath if specified or in memory otherwise.
+        /// Using this method is equivalent to calling Cef.GetGlobalRequestContext().GetCookieManager()
+        /// The cookie managers storage is created in an async fashion, whilst this method may return a cookie manager instance,
+        /// there may be a short delay before you can Get/Write cookies.
+        /// To be sure the cookie manager has been initialized use one of the following
+        /// - Access the ICookieManager after ICompletionCallback.OnComplete has been called
+        /// - Access the ICookieManager instance in IBrowserProcessHandler.OnContextInitialized.
+        /// - Use the ChromiumWebBrowser BrowserInitialized (OffScreen) or IsBrowserInitializedChanged (WinForms/WPF) events.
         /// </summary>
-        /// <returns>A blocking cookie manager</returns>
-        static ICookieManager^ GetBlockingCookieManager()
+        /// <param name="callback">If non-NULL it will be executed asnychronously on the CEF UI thread after the manager's storage has been initialized.</param>
+        /// <returns>A the global cookie manager or null if the RequestContext has not yet been initialized.</returns>
+        static ICookieManager^ GetGlobalCookieManager(ICompletionCallback^ callback)
         {
-            auto cookieManager = CefCookieManager::GetBlockingManager();
+            CefRefPtr<CefCompletionCallback> c = callback == nullptr ? NULL : new CefCompletionCallbackAdapter(callback);
+
+            auto cookieManager = CefCookieManager::GetGlobalManager(c);
             if (cookieManager.get())
             {
                 return gcnew CookieManager(cookieManager);
@@ -498,7 +511,7 @@ namespace CefSharp
         /// </summary>
         static void VisitWebPluginInfo(IWebPluginInfoVisitor^ visitor)
         {
-            CefVisitWebPluginInfo(new PluginVisitor(visitor));
+            CefVisitWebPluginInfo(new CefWebPluginInfoVisitorAdapter(visitor));
         }
 
         /// <summary>
@@ -509,7 +522,7 @@ namespace CefSharp
         static Task<List<WebPluginInfo^>^>^ GetPlugins()
         {
             auto taskVisitor = gcnew TaskWebPluginInfoVisitor();
-            CefRefPtr<PluginVisitor> visitor = new PluginVisitor(taskVisitor);
+            CefRefPtr<CefWebPluginInfoVisitorAdapter> visitor = new CefWebPluginInfoVisitorAdapter(taskVisitor);
 
             CefVisitWebPluginInfo(visitor);
 
@@ -683,7 +696,7 @@ namespace CefSharp
         /// The client application is responsible for downloading an appropriate
         /// platform-specific CDM binary distribution from Google, extracting the
         /// contents, and building the required directory structure on the local machine.
-        /// The <see cref="CefSharp.IBrowserHost.StartDownload"/> method class can be used
+        /// The <see cref="CefSharp::IBrowserHost::StartDownload"/> method class can be used
         /// to implement this functionality in CefSharp. Contact Google via
         /// https://www.widevine.com/contact.html for details on CDM download.
         /// 
@@ -697,7 +710,7 @@ namespace CefSharp
         ///
         /// If any of these files are missing or if the manifest file has incorrect
         /// contents the registration will fail and callback will receive an ErrorCode
-        /// value of <see cref="CefSharp.CdmRegistrationErrorCode.IncorrectContents"/>.
+        /// value of <see cref="CefSharp::CdmRegistrationErrorCode::IncorrectContents"/>.
         ///
         /// The manifest.json file must contain the following keys:
         ///   A. "os": Supported OS (e.g. "mac", "win" or "linux").
@@ -710,13 +723,13 @@ namespace CefSharp
         ///
         /// A through E are used to verify compatibility with the current Chromium
         /// version. If the CDM is not compatible the registration will fail and
-        /// callback will receive an ErrorCode value of <see cref="CdmRegistrationErrorCode.Incompatible"/>.
+        /// callback will receive an ErrorCode value of <see cref="CdmRegistrationErrorCode::Incompatible"/>.
         ///
         /// If registration is not supported at the time that Cef.RegisterWidevineCdm() is called then callback
-        /// will receive an ErrorCode value of <see cref="CdmRegistrationErrorCode.NotSupported"/>.
+        /// will receive an ErrorCode value of <see cref="CdmRegistrationErrorCode::NotSupported"/>.
         /// </summary>
         /// <param name="path"> is a directory that contains the Widevine CDM files</param>
-        /// <param name="callback">optional callback - <see cref="IRegisterCdmCallback.OnRegistrationCompletecallback"/> 
+        /// <param name="callback">optional callback - <see cref="IRegisterCdmCallback::OnRegistrationCompletecallback"/> 
         /// will be executed asynchronously once registration is complete</param>
         static void RegisterWidevineCdm(String^ path, [Optional] IRegisterCdmCallback^ callback)
         {
@@ -744,6 +757,53 @@ namespace CefSharp
             RegisterWidevineCdm(path, callback);
 
             return callback->Task;
+        }
+
+        /// <summary>
+        /// Returns the mime type for the specified file extension or an empty string if unknown.
+        /// </summary>
+        /// <param name="extension">file extension</param>
+        /// <returns>Returns the mime type for the specified file extension or an empty string if unknown.</returns>
+        static String^ GetMimeType(String^ extension)
+        {
+            if (extension == nullptr)
+            {
+                throw gcnew ArgumentNullException("extension");
+            }
+
+            if (extension->StartsWith("."))
+            {
+                extension = extension->Substring(1, extension->Length - 1);
+            }
+
+            return StringUtils::ToClr(CefGetMimeType(StringUtils::ToNative(extension)));
+        }
+
+        /// <summary>
+        /// Helper method to ensure all ChromiumWebBrowser instances have been
+        /// closed/disposed, should be called before Cef.Shutdown.
+        /// Disposes all remaning ChromiumWebBrowser instances
+        /// then waits for CEF to release it's remaning CefBrowser instances.
+        /// Finally a small delay of 50ms to allow for CEF to finish it's cleanup.
+        /// Should only be called when MultiThreadedMessageLoop = true;
+        /// (Hasn't been tested when when CEF integrates into main message loop).
+        /// </summary>
+        static void WaitForBrowsersToClose()
+        {
+            //Dispose of any remaining browser instances
+            for each(IDisposable^ diposable in Enumerable::ToList(_disposables))
+            {
+                delete diposable;
+            }
+
+            //Clear the list as we've disposed of them all now.
+            _disposables->Clear();
+
+            //Wait for the browsers to close
+            BrowserRefCounter::Instance->WaitForBrowsersToClose(500);
+
+            //A few extra ms to allow for CEF to finish 
+            Thread::Sleep(50);
         }
     };
 }

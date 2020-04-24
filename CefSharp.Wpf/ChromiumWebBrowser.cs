@@ -32,15 +32,31 @@ namespace CefSharp.Wpf
     /// ChromiumWebBrowser is the WPF web browser control
     /// </summary>
     /// <seealso cref="System.Windows.Controls.Control" />
-    /// <seealso cref="CefSharp.Internals.IRenderWebBrowser" />
     /// <seealso cref="CefSharp.Wpf.IWpfWebBrowser" />
     [TemplatePart(Name = PartImageName, Type = typeof(Image))]
     [TemplatePart(Name = PartPopupImageName, Type = typeof(Image))]
     public class ChromiumWebBrowser : Control, IRenderWebBrowser, IWpfWebBrowser
     {
+        /// <summary>
+        /// TemplatePart Name constant for the Image used to represent the browser
+        /// </summary>
         public const string PartImageName = "PART_image";
+        /// <summary>
+        /// TemplatePart Name constant for the Image used to represent the popup
+        /// overlayed on the browser
+        /// </summary>
         public const string PartPopupImageName = "PART_popupImage";
 
+        /// <summary>
+        /// View Rectangle used by <see cref="GetViewRect"/>
+        /// </summary>
+        private Rect viewRect;
+        /// <summary>
+        /// Store the previous window state, used to determine if the
+        /// Windows was previous <see cref="WindowState.Minimized"/>
+        /// and resume rendering
+        /// </summary>
+        private WindowState previousWindowState;
         /// <summary>
         /// The source
         /// </summary>
@@ -126,11 +142,20 @@ namespace CefSharp.Wpf
         /// </summary>
         private static bool DesignMode;
 
+        private bool resizeHackForIssue2779Enabled;
+        private CefSharp.Structs.Size? resizeHackForIssue2779Size;
+
         /// <summary>
         /// The value for disposal, if it's 1 (one) then this instance is either disposed
         /// or in the process of getting disposed
         /// </summary>
         private int disposeSignaled;
+
+        /// <summary>
+        /// Hack to work around issue https://github.com/cefsharp/CefSharp/issues/2779
+        /// Enabled by default
+        /// </summary>
+        public bool EnableResizeHackForIssue2779 { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether this instance is disposed.
@@ -191,7 +216,7 @@ namespace CefSharp.Wpf
                 }
                 if (value != null && value.GetType() != typeof(RequestContext))
                 {
-                    throw new Exception(string.Format("RequestContxt can only be of type {0} or null", typeof(RequestContext)));
+                    throw new Exception(string.Format("RequestContext can only be of type {0} or null", typeof(RequestContext)));
                 }
                 requestContext = value;
             }
@@ -252,10 +277,10 @@ namespace CefSharp.Wpf
         /// <value>The drag handler.</value>
         public IDragHandler DragHandler { get; set; }
         /// <summary>
-        /// Implement <see cref="IResourceHandlerFactory" /> and control the loading of resources
+        /// Implement <see cref="IResourceRequestHandlerFactory" /> and control the loading of resources
         /// </summary>
         /// <value>The resource handler factory.</value>
-        public IResourceHandlerFactory ResourceHandlerFactory { get; set; }
+        public IResourceRequestHandlerFactory ResourceRequestHandlerFactory { get; set; }
         /// <summary>
         /// Implement <see cref="IRenderHandler"/> and control how the control is rendered
         /// </summary>
@@ -356,6 +381,11 @@ namespace CefSharp.Wpf
         public event EventHandler<VirtualKeyboardRequestedEventArgs> VirtualKeyboardRequested;
 
         /// <summary>
+        /// Event handler that will get called when the message that originates from CefSharp.PostMessage
+        /// </summary>
+        public event EventHandler<JavascriptMessageReceivedEventArgs> JavascriptMessageReceived;
+
+        /// <summary>
         /// Navigates to the previous page in the browser history. Will automatically be enabled/disabled depending on the
         /// browser state.
         /// </summary>
@@ -451,7 +481,7 @@ namespace CefSharp.Wpf
         /// you must manually call IBrowserHost.NotifyScreenInfoChanged for the
         /// browser to be notified of the change.
         /// </summary>
-        public double DpiScaleFactor { get; set; }
+        public float DpiScaleFactor { get; set; }
 
         /// <summary>
         /// Initializes static members of the <see cref="ChromiumWebBrowser"/> class.
@@ -487,6 +517,51 @@ namespace CefSharp.Wpf
             }
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ChromiumWebBrowser"/> class.
+        /// Use this constructor to load the browser before it's attached to the Visual Tree.
+        /// The underlying CefBrowser will be created with the specified <paramref name="size"/>.
+        /// CEF requires positive values for <see cref="Size.Width"/> and <see cref="Size.Height"/>,
+        /// if values less than 1 are specified then the default value of 1 will be used instead.
+        /// You can subscribe to the <see cref="LoadingStateChanged"/> event and attach the browser
+        /// to it's parent control when Loading is complete (<see cref="LoadingStateChangedEventArgs.IsLoading"/> is false).
+        /// </summary>
+        /// <param name="parentWindowHwndSource">HwndSource for the Window that will host the browser.</param>
+        /// <param name="initialAddress">address to be loaded when the browser is created.</param>
+        /// <param name="size">size</param>
+        /// <example>
+        /// <code>
+        /// //Obtain Hwnd from parent window
+        /// var hwndSource = (HwndSource)PresentationSource.FromVisual(this);
+        /// var browser = new ChromiumWebBrowser(hwndSource, "github.com", 1024, 768);
+        /// browser.LoadingStateChanged += OnBrowserLoadingStateChanged;
+        /// 
+        /// private void OnBrowserLoadingStateChanged(object sender, LoadingStateChangedEventArgs e)
+        /// {
+        ///   if (e.IsLoading == false)
+        ///   {
+        ///     var b = (ChromiumWebBrowser)sender;
+        ///     b.LoadingStateChanged -= OnBrowserLoadingStateChanged;
+        ///     Dispatcher.InvokeAsync(() =>
+        ///     {
+        ///       //Attach to visual tree
+        ///       ParentControl.Child = b;
+        ///     });
+        ///   }
+        /// }
+        /// </code>
+        /// </example>
+        public ChromiumWebBrowser(HwndSource parentWindowHwndSource, string initialAddress, Size size) : this(initialAddress)
+        {
+            CreateBrowser(parentWindowHwndSource, size);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ChromiumWebBrowser"/> class.
+        /// The specified <paramref name="initialAddress"/> will be loaded initially.
+        /// Use this constructor if you are loading a Chrome Extension.
+        /// </summary>
+        /// <param name="initialAddress">address to be loaded when the browser is created.</param>
         public ChromiumWebBrowser(string initialAddress)
         {
             this.initialAddress = initialAddress;
@@ -497,11 +572,13 @@ namespace CefSharp.Wpf
         /// <summary>
         /// Constructor logic has been moved into this method
         /// Required for designer support - this method cannot be inlined as the designer
-        /// will attempt to load libcef.dll and will subsiquently throw an exception.
+        /// will attempt to load libcef.dll and will subsequently throw an exception.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private void NoInliningConstructor()
         {
+            EnableResizeHackForIssue2779 = true;
+
             //Initialize CEF if it hasn't already been initialized
             if (!Cef.IsInitialized)
             {
@@ -561,7 +638,6 @@ namespace CefSharp.Wpf
 
             managedCefBrowserAdapter = new ManagedCefBrowserAdapter(this, true);
 
-            ResourceHandlerFactory = new DefaultResourceHandlerFactory();
             browserSettings = new BrowserSettings(frameworkCreated: true);
             RenderHandler = new InteropBitmapRenderHandler();
 
@@ -622,7 +698,13 @@ namespace CefSharp.Wpf
         {
             if (disposing)
             {
+                CanExecuteJavascriptInMainFrame = false;
                 Interlocked.Exchange(ref browserInitialized, 0);
+
+                //Stop rendering immediately so later on when we dispose of the
+                //RenderHandler no further OnPaint calls take place
+                //Check browser not null as it's possible to call Dispose before it's created
+                browser?.GetHost().WasHidden(true);
 
                 UiThreadRunAsync(() =>
                 {
@@ -641,6 +723,7 @@ namespace CefSharp.Wpf
                 StatusMessage = null;
                 TitleChanged = null;
                 VirtualKeyboardRequested = null;
+                JavascriptMessageReceived = null;
 
                 // Release reference to handlers, except LifeSpanHandler which is done after Disposing
                 // ManagedCefBrowserAdapter otherwise the ILifeSpanHandler.DoClose will not be invoked.
@@ -649,11 +732,8 @@ namespace CefSharp.Wpf
                 browser = null;
 
                 // Incase we accidentally have a reference to the CEF drag data
-                if (currentDragData != null)
-                {
-                    currentDragData.Dispose();
-                    currentDragData = null;
-                }
+                currentDragData?.Dispose();
+                currentDragData = null;
 
                 PresentationSource.RemoveSourceChangedHandler(this, PresentationSourceChangedHandler);
                 // Release window event listeners if PresentationSourceChangedHandler event wasn't
@@ -691,17 +771,22 @@ namespace CefSharp.Wpf
                     CleanupElement.Unloaded -= OnCleanupElementUnloaded;
                 }
 
-                if (managedCefBrowserAdapter != null)
-                {
-                    managedCefBrowserAdapter.Dispose();
-                    managedCefBrowserAdapter = null;
-                }
+                managedCefBrowserAdapter?.Dispose();
+                managedCefBrowserAdapter = null;
 
                 // LifeSpanHandler is set to null after managedCefBrowserAdapter.Dispose so ILifeSpanHandler.DoClose
                 // is called.
                 LifeSpanHandler = null;
 
-                WpfKeyboardHandler.Dispose();
+                WpfKeyboardHandler?.Dispose();
+                WpfKeyboardHandler = null;
+
+                //Take a copy of the RenderHandler then set to property to null
+                //Before we dispose, reduces the changes of any OnPaint calls
+                //using the RenderHandler after Dispose
+                var renderHandler = RenderHandler;
+                RenderHandler = null;
+                renderHandler?.Dispose();
 
                 source = null;
 
@@ -741,7 +826,7 @@ namespace CefSharp.Wpf
 
             var screenInfo = new ScreenInfo
             {
-                DeviceScaleFactor = (float)DpiScaleFactor,
+                DeviceScaleFactor = DpiScaleFactor,
                 Rect = rect,
                 AvailableRect = availableRect
             };
@@ -766,12 +851,18 @@ namespace CefSharp.Wpf
         /// <returns>View Rectangle</returns>
         protected virtual Rect GetViewRect()
         {
-            //NOTE: Previous we used Math.Ceiling to round the sizing up, we
-            //now set UseLayoutRounding = true; on the control so the sizes are
-            //already rounded to a whole number for us.
-            var viewRect = new Rect(0, 0, (int)ActualWidth, (int)ActualHeight);
+            //Take a local copy as the value is set on a different thread,
+            //Its possible the struct is set to null after our initial check.
+            var resizeRect = resizeHackForIssue2779Size;
 
-            return viewRect;
+            if (resizeRect == null)
+            {
+                return viewRect;
+            }
+
+            var size = resizeRect.Value;
+
+            return new Rect(0, 0, size.Width, size.Height);
         }
 
         bool IRenderWebBrowser.GetScreenPoint(int viewX, int viewY, out int screenX, out int screenY)
@@ -779,7 +870,7 @@ namespace CefSharp.Wpf
             screenX = 0;
             screenY = 0;
 
-            //We manually claculate the screen point as calling PointToScreen can only be called on the UI thread
+            //We manually calculate the screen point as calling PointToScreen can only be called on the UI thread
             // in a sync fashion and it's easy for users to get themselves into a deadlock.
             if (DpiScaleFactor > 1)
             {
@@ -908,11 +999,19 @@ namespace CefSharp.Wpf
         /// </summary>
         /// <param name="isPopup">indicates whether the element is the view or the popup widget.</param>
         /// <param name="dirtyRect">contains the set of rectangles in pixel coordinates that need to be repainted</param>
-        /// <param name="buffer">The bitmap will be will be  width * height *4 bytes in size and represents a BGRA image with an upper-left origin</param>
+        /// <param name="buffer">The bitmap will be width * height *4 bytes in size and represents a BGRA image with an upper-left origin.
+        /// The buffer should no be used outside the scope of this method, a copy should be taken. As the buffer is reused
+        /// internally and potentially even freed.
+        /// </param>
         /// <param name="width">width</param>
         /// <param name="height">height</param>
         protected virtual void OnPaint(bool isPopup, Rect dirtyRect, IntPtr buffer, int width, int height)
         {
+            if (resizeHackForIssue2779Enabled)
+            {
+                return;
+            }
+
             var paint = Paint;
             if (paint != null)
             {
@@ -964,7 +1063,7 @@ namespace CefSharp.Wpf
                 //When using a custom it appears we need to update the cursor in a sync fashion
                 //Likely the underlying handle/buffer is being released before the cursor
                 // is created when executed in an async fashion. Doesn't seem to be a problem
-                //for build in cursor types
+                //for built in cursor types
                 UiThreadRunSync(() =>
                 {
                     Cursor = CursorInteropHelper.Create(new SafeFileHandle(handle, ownsHandle: false));
@@ -1118,6 +1217,11 @@ namespace CefSharp.Wpf
         void IWebBrowserInternal.SetCanExecuteJavascriptOnMainFrame(bool canExecute)
         {
             CanExecuteJavascriptInMainFrame = canExecute;
+        }
+
+        void IWebBrowserInternal.SetJavascriptMessageReceived(JavascriptMessageReceivedEventArgs args)
+        {
+            JavascriptMessageReceived?.Invoke(this, args);
         }
 
         /// <summary>
@@ -1280,6 +1384,15 @@ namespace CefSharp.Wpf
         /// A flag that indicates whether the WebBrowser is initialized (true) or not (false).
         /// </summary>
         /// <value><c>true</c> if this instance is browser initialized; otherwise, <c>false</c>.</value>
+        bool IWebBrowser.IsBrowserInitialized
+        {
+            get { return InternalIsBrowserInitialized(); }
+        }
+
+        /// <summary>
+        /// A flag that indicates whether the WebBrowser is initialized (true) or not (false).
+        /// </summary>
+        /// <value><c>true</c> if this instance is browser initialized; otherwise, <c>false</c>.</value>
         /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
         /// binding.</remarks>
         public bool IsBrowserInitialized
@@ -1389,6 +1502,14 @@ namespace CefSharp.Wpf
         /// <summary>
         /// The zoom level at which the browser control is currently displaying.
         /// Can be set to 0 to clear the zoom level (resets to default zoom level).
+        /// NOTE: For browsers that share the same render process (same origin) this
+        /// property is only updated when the browser changes it's visible state.
+        /// If you have two browsers visible at the same time that share the same render
+        /// process then zooming one will not update this property in the other (unless
+        /// the control is hidden and then shown). You can isolate browser instances
+        /// using a <see cref="RequestContext"/>, they will then have their own render process
+        /// regardless of the process policy. You can manually get the Zoom level using
+        /// <see cref="IBrowserHost.GetZoomLevelAsync"/>
         /// </summary>
         /// <value>The zoom level.</value>
         public double ZoomLevel
@@ -1678,6 +1799,8 @@ namespace CefSharp.Wpf
 
                 monitorInfo.Init();
                 MonitorInfo.GetMonitorInfoForWindowHandle(source.Handle, ref monitorInfo);
+
+                source.AddHook(DpiChangedHook);
             }
             else if (args.OldSource != null)
             {
@@ -1690,10 +1813,12 @@ namespace CefSharp.Wpf
                     window.LocationChanged -= OnWindowLocationChanged;
                     sourceWindow = null;
                 }
+
+                (args.OldSource as HwndSource)?.RemoveHook(DpiChangedHook);
             }
         }
 
-        private void OnWindowStateChanged(object sender, EventArgs e)
+        private async void OnWindowStateChanged(object sender, EventArgs e)
         {
             var window = (Window)sender;
 
@@ -1702,21 +1827,61 @@ namespace CefSharp.Wpf
                 case WindowState.Normal:
                 case WindowState.Maximized:
                 {
-                    if (browser != null)
+                    if (previousWindowState == WindowState.Minimized && browser != null)
                     {
-                        browser.GetHost().WasHidden(false);
+                        await CefUiThreadRunAsync(async () =>
+                        {
+                            var host = browser?.GetHost();
+                            if (host != null && !host.IsDisposed)
+                            {
+                                try
+                                {
+                                    host.WasHidden(false);
+
+                                    await ResizeHackFor2779();
+                                }
+                                catch (ObjectDisposedException)
+                                {
+                                    // Because Dispose runs in another thread there's a race condition between
+                                    // that and this code running on the CEF UI thread, so the host could be disposed
+                                    // between the check and using it. We can either synchronize access using locking
+                                    // (potentially blocking the UI thread in Dispose) or catch the extremely rare
+                                    // exception, which is what we do here
+                                }
+                            }
+                        });
                     }
+
                     break;
                 }
                 case WindowState.Minimized:
                 {
-                    if (browser != null)
+                    await CefUiThreadRunAsync(() =>
                     {
-                        browser.GetHost().WasHidden(true);
-                    }
+                        var host = browser?.GetHost();
+                        if (host != null && !host.IsDisposed)
+                        {
+                            if (EnableResizeHackForIssue2779)
+                            {
+                                resizeHackForIssue2779Enabled = true;
+                            }
+
+                            try
+                            {
+                                host.WasHidden(true);
+                            }
+                            catch (ObjectDisposedException)
+                            {
+                                // See comment in catch in OnWindowStateChanged
+                            }
+                        }
+                    });
+
                     break;
                 }
             }
+
+            previousWindowState = window.WindowState;
         }
 
         /// <summary>
@@ -1746,6 +1911,47 @@ namespace CefSharp.Wpf
         }
 
         /// <summary>
+        /// Create the underlying CefBrowser instance with the specified <paramref name="initialSize"/>.
+        /// This method should only be used in instances where you need the browser
+        /// to load before it's attached to the Visual Tree. 
+        /// </summary>
+        /// <param name="parentWindowHwndSource">HwndSource for the Window that will host the browser.</param>
+        /// <param name="initialSize">initial size</param>
+        /// <returns>Returns false if browser already created, otherwise true.</returns>
+        public bool CreateBrowser(HwndSource parentWindowHwndSource, Size initialSize)
+        {
+            if (initialSize.IsEmpty || initialSize.Equals(new Size(0, 0)))
+            {
+                throw new Exception("Invalid size, must be greater than 0,0");
+            }
+
+            source = parentWindowHwndSource;
+
+            if (!CreateOffscreenBrowser(initialSize))
+            {
+                return false;
+            }
+
+            RoutedEventHandler handler = null;
+            handler = (sender, args) =>
+            {
+                Loaded -= handler;
+
+                //If the browser has finished rendering before we attach to the Visual Tree
+                //then ask for a new frame to be generated
+                var host = this.GetBrowserHost();
+                if (host != null)
+                {
+                    host.Invalidate(PaintElementType.View);
+                }
+            };
+
+            Loaded += handler;
+
+            return true;
+        }
+
+        /// <summary>
         /// Create the underlying Browser instance, can be overriden to defer control creation
         /// The browser will only be created when size &gt; Size(0,0). If you specify a positive
         /// size then the browser will be created, if the ActualWidth and ActualHeight
@@ -1768,6 +1974,12 @@ namespace CefSharp.Wpf
                 //Pass null in for Address and rely on Load being called in OnAfterBrowserCreated
                 //Workaround for issue https://github.com/cefsharp/CefSharp/issues/2300
                 managedCefBrowserAdapter.CreateBrowser(windowInfo, browserSettings as BrowserSettings, requestContext as RequestContext, address: initialAddress);
+
+                //Dispose of BrowserSettings if we created it, if user created then they're responsible
+                if (browserSettings.FrameworkCreated)
+                {
+                    browserSettings.Dispose();
+                }
 
                 browserSettings = null;
             }
@@ -1808,6 +2020,31 @@ namespace CefSharp.Wpf
         }
 
         /// <summary>
+        /// Run the Action on the CEF UI Thread in an async fashion
+        /// </summary>
+        /// <param name="action">The action.</param>
+        /// <returns>
+        /// An asynchronous result.
+        /// </returns>
+        protected async Task CefUiThreadRunAsync(Action action)
+        {
+            if (!IsDisposed && InternalIsBrowserInitialized())
+            {
+                if (Cef.CurrentlyOnThread(CefThreadIds.TID_UI))
+                {
+                    action();
+                }
+                else
+                {
+                    await Cef.UIThreadTaskFactory.StartNew(delegate
+                    {
+                        action();
+                    });
+                }
+            }
+        }
+
+        /// <summary>
         /// Runs the specific Action on the Dispatcher in an sync fashion
         /// </summary>
         /// <param name="action">The action.</param>
@@ -1829,15 +2066,44 @@ namespace CefSharp.Wpf
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="SizeChangedEventArgs"/> instance containing the event data.</param>
-        private void OnActualSizeChanged(object sender, SizeChangedEventArgs e)
+        private async void OnActualSizeChanged(object sender, SizeChangedEventArgs e)
         {
             // Initialize RenderClientAdapter when WPF has calculated the actual size of current content.
             CreateOffscreenBrowser(e.NewSize);
 
-            if (browser != null)
+            if (InternalIsBrowserInitialized())
             {
-                browser.GetHost().WasResized();
+                await CefUiThreadRunAsync(() =>
+                {
+                    SetViewRect(e);
+
+                    var host = browser?.GetHost();
+                    if (host != null && !host.IsDisposed)
+                    {
+                        try
+                        {
+                            host.WasResized();
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            // See comment in catch in OnWindowStateChanged
+                        }
+                    }
+                });
             }
+            else
+            {
+                //If the browser hasn't been created yet then directly update the viewRect
+                SetViewRect(e);
+            }
+        }
+
+        private void SetViewRect(SizeChangedEventArgs e)
+        {
+            //NOTE: Previous we used Math.Ceiling to round the sizing up, we
+            //now set UseLayoutRounding = true; on the control so the sizes are
+            //already rounded to a whole number for us.
+            viewRect = new Rect(0, 0, (int)e.NewSize.Width, (int)e.NewSize.Height);
         }
 
         /// <summary>
@@ -1845,7 +2111,7 @@ namespace CefSharp.Wpf
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="args">The <see cref="DependencyPropertyChangedEventArgs"/> instance containing the event data.</param>
-        private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs args)
+        private async void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs args)
         {
             var isVisible = (bool)args.NewValue;
 
@@ -1864,25 +2130,46 @@ namespace CefSharp.Wpf
 
             if (browser != null)
             {
-                var host = browser.GetHost();
-                host.WasHidden(!isVisible);
+                await CefUiThreadRunAsync(async () =>
+                {
+                    var host = browser?.GetHost();
+                    if (host != null && !host.IsDisposed)
+                    {
+                        try
+                        {
+                            host.WasHidden(!isVisible);
 
-                if (isVisible)
+                            if (isVisible)
+                            {
+                                await ResizeHackFor2779();
+                            }
+                            else if (EnableResizeHackForIssue2779)
+                            {
+                                resizeHackForIssue2779Enabled = true;
+                            }
+                        }
+                        catch (ObjectDisposedException)
+                        {
+                            // See comment in catch in OnWindowStateChanged
+                        }
+                    }
+                });
+
+                if (browser != null)
                 {
                     //Fix for #1778 - When browser becomes visible we update the zoom level
                     //browsers of the same origin will share the same zoomlevel and
                     //we need to track the update, so our ZoomLevelProperty works
                     //properly
-                    host.GetZoomLevelAsync().ContinueWith(t =>
+                    var zoomLevel = await browser.GetHost().GetZoomLevelAsync();
+
+                    UiThreadRunAsync(() =>
                     {
                         if (!IsDisposed)
                         {
-                            SetCurrentValue(ZoomLevelProperty, t.Result);
+                            SetCurrentValue(ZoomLevelProperty, zoomLevel);
                         }
-                    },
-                    CancellationToken.None,
-                    TaskContinuationOptions.OnlyOnRanToCompletion,
-                    TaskScheduler.FromCurrentSynchronizationContext());
+                    });
                 }
             }
         }
@@ -1959,6 +2246,17 @@ namespace CefSharp.Wpf
                 var dpi = wParam.CastToInt32() & 0xFFFF;
                 var scale = (float)dpi / 96;
                 NotifyDpiChange(scale);
+            }
+            return IntPtr.Zero;
+        }
+
+        private IntPtr DpiChangedHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            int WM_DPICHANGED = 0x02E0;
+            if (msg == WM_DPICHANGED)
+            {
+                var dpi = wParam.CastToInt32() & 0xffff;
+                NotifyDpiChange(dpi / 96);
             }
             return IntPtr.Zero;
         }
@@ -2056,7 +2354,18 @@ namespace CefSharp.Wpf
                     toolTip.IsOpen = false;
                 }
 
-                toolTip.Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+                //If no ToolTip style is defined then we'll
+                //use a TextBlock to ensure the Text is wrapped
+                //If a style is applied leave to the user to apply relevant wrapping
+                //Issue https://github.com/cefsharp/CefSharp/issues/2488
+                if (toolTip.Style == null)
+                {
+                    toolTip.Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+                }
+                else
+                {
+                    toolTip.SetCurrentValue(ContentControl.ContentProperty, text);
+                }
                 toolTip.Placement = PlacementMode.Mouse;
                 toolTip.Visibility = Visibility.Visible;
                 toolTip.IsOpen = true;
@@ -2202,10 +2511,23 @@ namespace CefSharp.Wpf
             {
                 Focus();
                 OnMouseButton(e);
-            }
 
+                //We should only need to capture the left button exiting the browser
+                if (e.ChangedButton == MouseButton.Left && e.LeftButton == MouseButtonState.Pressed)
+                {
+                    //Capture/Release Mouse to allow for scrolling outside bounds of browser control (#2258).
+                    //Known issue when capturing and the device has a touch screen, to workaround this issue
+                    //disable WPF StylusAndTouchSupport see for details https://github.com/dotnet/wpf/issues/1323#issuecomment-513870984
+                    CaptureMouse();
+                }
+            }
             e.Handled = true;
             base.OnMouseDown(e);
+
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                Mouse.Capture(this); // allow capturing mouse when outside the webview (eg: grabbing scrollbar)
+            }
         }
 
         /// <summary>
@@ -2223,10 +2545,24 @@ namespace CefSharp.Wpf
             if (e.StylusDevice == null)
             {
                 OnMouseButton(e);
-            }
 
+                if (e.ChangedButton == MouseButton.Left && e.LeftButton == MouseButtonState.Released)
+                {
+                    //Release the mouse capture that we grabbed on mouse down.
+                    //We won't get here if e.g. the right mouse button is pressed and released
+                    //while the left is still held, but in that case the left mouse capture seems
+                    //to be released implicitly (even without the left mouse SendMouseClickEvent in leave below)
+                    //Use ReleaseMouseCapture over Mouse.Capture(null); as it has additional Mouse.Captured == this check
+                    ReleaseMouseCapture();
+                }
+            }
             e.Handled = true;
             base.OnMouseUp(e);
+
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                Mouse.Capture(null);
+            }
         }
 
         /// <summary>
@@ -2246,22 +2582,27 @@ namespace CefSharp.Wpf
                 var modifiers = e.GetModifiers();
                 var point = e.GetPosition(this);
 
-                //If the LeftMouse button is pressed when leaving the control we send a mouse click with mouseUp: true
-                //to let the browser know the mouse has been released
-                if (e.LeftButton == MouseButtonState.Pressed)
-                {
-                    browser.GetHost().SendMouseClickEvent((int)point.X, (int)point.Y, MouseButtonType.Left, mouseUp: true, clickCount: 1, modifiers: modifiers);
-                }
-                else
-                {
-                    browser.GetHost().SendMouseMoveEvent((int)point.X, (int)point.Y, true, modifiers);
-                }
+                browser.GetHost().SendMouseMoveEvent((int)point.X, (int)point.Y, true, modifiers);
 
                 ((IWebBrowserInternal)this).SetTooltipText(null);
-
             }
             e.Handled = true;
             base.OnMouseLeave(e);
+        }
+
+        /// <summary>
+        /// Invoked when an unhandled <see cref="E:System.Windows.Input.Mouse.LostMouseCapture" /> attached event reaches an element in
+        /// its route that is derived from this class. Implement this method to add class handling for this event.
+        /// </summary>
+        /// <param name="e">The <see cref="T:System.Windows.Input.MouseEventArgs" /> that contains event data.</param>
+        protected override void OnLostMouseCapture(MouseEventArgs e)
+        {
+            if (!e.Handled && browser != null)
+            {
+                browser.GetHost().SendCaptureLostEvent();
+            }
+
+            base.OnLostMouseCapture(e);
         }
 
         /// <summary>
@@ -2294,6 +2635,8 @@ namespace CefSharp.Wpf
                 {
                     browser.GetHost().SendMouseClickEvent((int)point.X, (int)point.Y, (MouseButtonType)e.ChangedButton, mouseUp, e.ClickCount, modifiers);
                 }
+
+                e.Handled = true;
             }
         }
 
@@ -2338,8 +2681,6 @@ namespace CefSharp.Wpf
         /// <param name="e">The <see cref="TouchEventArgs"/> instance containing the event data.</param>
         private void OnTouch(TouchEventArgs e)
         {
-            var browser = GetBrowser();
-
             if (!e.Handled && browser != null)
             {
                 var modifiers = WpfExtensions.GetModifierKeys();
@@ -2381,12 +2722,7 @@ namespace CefSharp.Wpf
 
                 browser.GetHost().SendTouchEvent(touchEvent);
 
-                //Not handle up event which may cause touch failure in ealier .NET Framework.
-                //https://translate.google.com/translate?sl=auto&tl=en&u=https%3A%2F%2Fblog.walterlv.com%2Fwpf%2F2017%2F09%2F12%2Ftouch-not-work-in-wpf.html%23%25E7%25AC%25AC%25E4%25BA%258C%25E7%25A7%258D%25E6%2583%2585%25E5%2586%25B5
-                if (touchPoint.Action != TouchAction.Up)
-                {
-                    e.Handled = true;
-                }
+                e.Handled = true;
             }
         }
 
@@ -2470,18 +2806,27 @@ namespace CefSharp.Wpf
             }
 
             //Ignore this for custom bitmap factories                   
-            if (RenderHandler is WritableBitmapRenderHandler || RenderHandler is InteropBitmapRenderHandler)
+            if (RenderHandler is WritableBitmapRenderHandler || RenderHandler is InteropBitmapRenderHandler || RenderHandler is DirectWritableBitmapRenderHandler)
             {
-                if (DpiScaleFactor > 1.0 && !(RenderHandler is WritableBitmapRenderHandler))
+                if (Cef.CurrentlyOnThread(CefThreadIds.TID_UI) && !(RenderHandler is DirectWritableBitmapRenderHandler))
                 {
                     const int DefaultDpi = 96;
                     var scale = DefaultDpi * DpiScaleFactor;
-
-                    RenderHandler = new WritableBitmapRenderHandler(scale, scale);
+                    RenderHandler = new DirectWritableBitmapRenderHandler(scale, scale, invalidateDirtyRect: true);
                 }
-                else if (DpiScaleFactor == 1.0 && !(RenderHandler is InteropBitmapRenderHandler))
+                else
                 {
-                    RenderHandler = new InteropBitmapRenderHandler();
+                    if (DpiScaleFactor > 1.0 && !(RenderHandler is WritableBitmapRenderHandler))
+                    {
+                        const int DefaultDpi = 96;
+                        var scale = DefaultDpi * DpiScaleFactor;
+
+                        RenderHandler = new WritableBitmapRenderHandler(scale, scale);
+                    }
+                    else if (DpiScaleFactor == 1.0 && !(RenderHandler is InteropBitmapRenderHandler))
+                    {
+                        RenderHandler = new InteropBitmapRenderHandler();
+                    }
                 }
             }
         }
@@ -2514,6 +2859,16 @@ namespace CefSharp.Wpf
         /// <returns>browser instance or null</returns>
         public IBrowser GetBrowser()
         {
+            this.ThrowExceptionIfDisposed();
+
+            //We don't use the this.ThrowExceptionIfBrowserNotInitialized(); extension method here
+            // As it relies on the IWebBrowser.IsBrowserInitialized property which is a DependencyProperty
+            // in WPF and will throw an InvalidOperationException if called on a Non-UI thread.
+            if (!InternalIsBrowserInitialized())
+            {
+                throw new Exception(WebBrowserExtensions.BrowserNotInitializedExceptionErrorMessage);
+            }
+
             return browser;
         }
 
@@ -2526,6 +2881,33 @@ namespace CefSharp.Wpf
             // Use CompareExchange to read the current value - if disposeCount is 1, we set it to 1, effectively a no-op
             // Volatile.Read would likely use a memory barrier which I believe is unnecessary in this scenario
             return Interlocked.CompareExchange(ref browserInitialized, 0, 0) == 1;
+        }
+
+        private async Task ResizeHackFor2779()
+        {
+            if (EnableResizeHackForIssue2779)
+            {
+                const int delayInMs = 50;
+
+                var host = browser?.GetHost();
+                if (host != null && !host.IsDisposed)
+                {
+                    resizeHackForIssue2779Size = new Structs.Size(viewRect.Width - 1, viewRect.Height - 1);
+                    host.WasResized();
+
+                    await Task.Delay(delayInMs);
+
+                    if (!host.IsDisposed)
+                    {
+                        resizeHackForIssue2779Size = null;
+                        host.WasResized();
+
+                        resizeHackForIssue2779Enabled = false;
+
+                        host.Invalidate(PaintElementType.View);
+                    }
+                }
+            }
         }
     }
 }

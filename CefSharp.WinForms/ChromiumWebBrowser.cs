@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Windows.Forms;
 using CefSharp.Internals;
+using CefSharp.Web;
 using CefSharp.WinForms.Internals;
 
 namespace CefSharp.WinForms
@@ -17,13 +18,16 @@ namespace CefSharp.WinForms
     /// ChromiumWebBrowser is the WinForms web browser control
     /// </summary>
     /// <seealso cref="System.Windows.Forms.Control" />
-    /// <seealso cref="CefSharp.Internals.IWebBrowserInternal" />
     /// <seealso cref="CefSharp.WinForms.IWinFormsWebBrowser" />
     [Docking(DockingBehavior.AutoDock), DefaultEvent("LoadingStateChanged"), ToolboxBitmap(typeof(ChromiumWebBrowser)),
     Description("CefSharp ChromiumWebBrowser - Chromium Embedded Framework .Net wrapper. https://github.com/cefsharp/CefSharp"),
     Designer(typeof(ChromiumWebBrowserDesigner))]
     public class ChromiumWebBrowser : Control, IWebBrowserInternal, IWinFormsWebBrowser
     {
+        //TODO: If we start adding more consts then extract them into a common class
+        //Possibly in the CefSharp assembly and move the WPF ones into there as well.
+        private const uint WS_EX_NOACTIVATE = 0x08000000;
+
         /// <summary>
         /// The managed cef browser adapter
         /// </summary>
@@ -51,6 +55,17 @@ namespace CefSharp.WinForms
         /// </summary>
         private bool browserCreated;
         /// <summary>
+        /// A flag indicating if the <see cref="Address"/> was used when calling CreateBrowser
+        /// If false and <see cref="Address"/> contains a non empty string Load will be called
+        /// on the main frame
+        /// </summary>
+        private bool initialAddressLoaded;
+        /// <summary>
+        /// If true the the WS_EX_NOACTIVATE style will be removed so that future mouse clicks
+        /// inside the browser correctly activate and focus the window.
+        /// </summary>
+        private bool removeExNoActivateStyle;
+        /// <summary>
         /// Browser initialization settings
         /// </summary>
         private IBrowserSettings browserSettings;
@@ -67,10 +82,16 @@ namespace CefSharp.WinForms
         private int disposeSignaled;
 
         /// <summary>
+        /// Parking control used to temporarily host the CefBrowser instance
+        /// when <see cref="RecreatingHandle"/> is <c>true</c>.
+        /// </summary>
+        private Control parkingControl;
+
+        /// <summary>
         /// Gets a value indicating whether this instance is disposed.
         /// </summary>
         /// <value><see langword="true" /> if this instance is disposed; otherwise, <see langword="false" />.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(false)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(false)]
         public new bool IsDisposed
         {
             get
@@ -84,17 +105,30 @@ namespace CefSharp.WinForms
         /// MUST ONLY be cleared by DefaultFocusHandler.
         /// </summary>
         /// <value><c>true</c> if this instance is activating; otherwise, <c>false</c>.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(false)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(false)]
         public bool IsActivating { get; set; }
 
         /// <summary>
         /// Gets or sets the browser settings.
         /// </summary>
         /// <value>The browser settings.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IBrowserSettings BrowserSettings
         {
-            get { return browserSettings; }
+            get
+            {
+                //We keep a reference to the browserSettings for the case where
+                //the Control Handle is destroyed then Created see https://github.com/cefsharp/CefSharp/issues/2840
+                //As it's not possible to change settings after the browser has been
+                //created, and changing browserSettings then creating a new handle will
+                //give a subtle different user experience if you aren't expecting it we
+                //return null here even though we still have a reference.
+                if (browserCreated)
+                {
+                    return null;
+                }
+                return browserSettings;
+            }
             set
             {
                 if (browserCreated)
@@ -110,10 +144,17 @@ namespace CefSharp.WinForms
             }
         }
         /// <summary>
+        /// Activates browser upon creation, the default value is false. Prior to version 73
+        /// the default behaviour was to activate browser on creation (Equivilent of setting this property to true).
+        /// To restore this behaviour set this value to true immediately after you create the <see cref="ChromiumWebBrowser"/> instance.
+        /// https://bitbucket.org/chromiumembedded/cef/issues/1856/branch-2526-cef-activates-browser-window
+        /// </summary>
+        public bool ActivateBrowserOnCreation { get; set; }
+        /// <summary>
         /// Gets or sets the request context.
         /// </summary>
         /// <value>The request context.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IRequestContext RequestContext
         {
             get { return requestContext; }
@@ -126,7 +167,7 @@ namespace CefSharp.WinForms
                 }
                 if (value != null && value.GetType() != typeof(RequestContext))
                 {
-                    throw new Exception(string.Format("RequestContxt can only be of type {0} or null", typeof(RequestContext)));
+                    throw new Exception(string.Format("RequestContext can only be of type {0} or null", typeof(RequestContext)));
                 }
                 requestContext = value;
             }
@@ -137,13 +178,13 @@ namespace CefSharp.WinForms
         /// <value><c>true</c> if this instance is loading; otherwise, <c>false</c>.</value>
         /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
         /// binding.</remarks>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(false)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(false)]
         public bool IsLoading { get; private set; }
         /// <summary>
         /// The text that will be displayed as a ToolTip
         /// </summary>
         /// <value>The tooltip text.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public string TooltipText { get; private set; }
         /// <summary>
         /// The address (URL) which the browser control is currently displaying.
@@ -152,74 +193,74 @@ namespace CefSharp.WinForms
         /// <value>The address.</value>
         /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
         /// binding.</remarks>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public string Address { get; private set; }
 
         /// <summary>
         /// Implement <see cref="IDialogHandler" /> and assign to handle dialog events.
         /// </summary>
         /// <value>The dialog handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IDialogHandler DialogHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IJsDialogHandler" /> and assign to handle events related to JavaScript Dialogs.
         /// </summary>
         /// <value>The js dialog handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IJsDialogHandler JsDialogHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IKeyboardHandler" /> and assign to handle events related to key press.
         /// </summary>
         /// <value>The keyboard handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IKeyboardHandler KeyboardHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IRequestHandler" /> and assign to handle events related to browser requests.
         /// </summary>
         /// <value>The request handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IRequestHandler RequestHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IDownloadHandler" /> and assign to handle events related to downloading files.
         /// </summary>
         /// <value>The download handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IDownloadHandler DownloadHandler { get; set; }
         /// <summary>
         /// Implement <see cref="ILoadHandler" /> and assign to handle events related to browser load status.
         /// </summary>
         /// <value>The load handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public ILoadHandler LoadHandler { get; set; }
         /// <summary>
         /// Implement <see cref="ILifeSpanHandler" /> and assign to handle events related to popups.
         /// </summary>
         /// <value>The life span handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public ILifeSpanHandler LifeSpanHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IDisplayHandler" /> and assign to handle events related to browser display state.
         /// </summary>
         /// <value>The display handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IDisplayHandler DisplayHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IContextMenuHandler" /> and assign to handle events related to the browser context menu
         /// </summary>
         /// <value>The menu handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IContextMenuHandler MenuHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IRenderProcessMessageHandler" /> and assign to handle messages from the render process.
         /// </summary>
         /// <value>The render process message handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IRenderProcessMessageHandler RenderProcessMessageHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IFindHandler" /> to handle events related to find results.
         /// </summary>
         /// <value>The find handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IFindHandler FindHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IAudioHandler" /> to handle audio events.
@@ -235,20 +276,20 @@ namespace CefSharp.WinForms
         /// needing to override the logic in OnGotFocus. The implementation in
         /// DefaultFocusHandler relies on very detailed behavior of how WinForms and
         /// Windows interact during window activation.</remarks>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IFocusHandler FocusHandler { get; set; }
         /// <summary>
         /// Implement <see cref="IDragHandler" /> and assign to handle events related to dragging.
         /// </summary>
         /// <value>The drag handler.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
         public IDragHandler DragHandler { get; set; }
         /// <summary>
-        /// Implement <see cref="IResourceHandlerFactory" /> and control the loading of resources
+        /// Implement <see cref="IResourceRequestHandlerFactory" /> and control the loading of resources
         /// </summary>
         /// <value>The resource handler factory.</value>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(null)]
-        public IResourceHandlerFactory ResourceHandlerFactory { get; set; }
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(null)]
+        public IResourceRequestHandlerFactory ResourceRequestHandlerFactory { get; set; }
 
         /// <summary>
         /// Event handler that will get called when the resource load for a navigation fails or is canceled.
@@ -324,7 +365,12 @@ namespace CefSharp.WinForms
         /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
         /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
         /// </summary>
-        public event EventHandler<IsBrowserInitializedChangedEventArgs> IsBrowserInitializedChanged;
+        public event EventHandler IsBrowserInitializedChanged;
+
+        /// <summary>
+        /// Event handler that will get called when the message that originates from CefSharp.PostMessage
+        /// </summary>
+        public event EventHandler<JavascriptMessageReceivedEventArgs> JavascriptMessageReceived;
 
         /// <summary>
         /// A flag that indicates whether the state of the control currently supports the GoForward action (true) or not (false).
@@ -332,7 +378,7 @@ namespace CefSharp.WinForms
         /// <value><c>true</c> if this instance can go forward; otherwise, <c>false</c>.</value>
         /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
         /// binding.</remarks>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(false)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(false)]
         public bool CanGoForward { get; private set; }
         /// <summary>
         /// A flag that indicates whether the state of the control current supports the GoBack action (true) or not (false).
@@ -340,15 +386,13 @@ namespace CefSharp.WinForms
         /// <value><c>true</c> if this instance can go back; otherwise, <c>false</c>.</value>
         /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
         /// binding.</remarks>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(false)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(false)]
         public bool CanGoBack { get; private set; }
         /// <summary>
         /// A flag that indicates whether the WebBrowser is initialized (true) or not (false).
         /// </summary>
         /// <value><c>true</c> if this instance is browser initialized; otherwise, <c>false</c>.</value>
-        /// <remarks>In the WPF control, this property is implemented as a Dependency Property and fully supports data
-        /// binding.</remarks>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(false)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(false)]
         public bool IsBrowserInitialized { get; private set; }
 
         /// <summary>
@@ -356,17 +400,31 @@ namespace CefSharp.WinForms
         /// Flag is set to true in IRenderProcessMessageHandler.OnContextCreated.
         /// and false in IRenderProcessMessageHandler.OnContextReleased
         /// </summary>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(false)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(false)]
         public bool CanExecuteJavascriptInMainFrame { get; private set; }
 
         /// <summary>
         /// ParentFormMessageInterceptor hooks the Form handle and forwards
         /// the move/active messages to the browser, the default is true
-        /// and should only be required when using <see cref="CefSettings.MultiThreadedMessageLoop"/>
+        /// and should only be required when using <see cref="CefSettingsBase.MultiThreadedMessageLoop"/>
         /// set to true.
         /// </summary>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never), DefaultValue(true)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(true)]
         public bool UseParentFormMessageInterceptor { get; set; } = true;
+
+        /// <summary>
+        /// By default when <see cref="Control.OnHandleDestroyed(EventArgs)"/> is called
+        /// the underlying Browser Hwnd is only parked (moved to a temp parent) 
+        /// when <see cref="Control.RecreatingHandle"/> is <c>true</c>, there are a few other
+        /// cases where parking of the control is desired, you can force parking by setting
+        /// this property to <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// You may wish to set this property to <c>true</c> when using the browser in conjunction
+        /// with https://github.com/dockpanelsuite/dockpanelsuite
+        /// </remarks>
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden), DefaultValue(true)]
+        public bool ParkControlOnHandleDestroyed { get; set; } = false;
 
         /// <summary>
         /// Initializes static members of the <see cref="ChromiumWebBrowser"/> class.
@@ -403,10 +461,25 @@ namespace CefSharp.WinForms
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromiumWebBrowser"/> class.
+        /// **Important** - When using this constructor the <see cref="Control.Dock"/> property
+        /// will default to <see cref="DockStyle.Fill"/>.
+        /// </summary>
+        /// <param name="html">html string to be initially loaded in the browser.</param>
+        /// <param name="requestContext">(Optional) Request context that will be used for this browser instance, if null the Global
+        /// Request Context will be used.</param>
+        public ChromiumWebBrowser(HtmlString html, IRequestContext requestContext = null) : this(html.ToDataUriString(), requestContext)
+        {
+
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ChromiumWebBrowser"/> class.
+        /// **Important** - When using this constructor the <see cref="Control.Dock"/> property
+        /// will default to <see cref="DockStyle.Fill"/>.
         /// </summary>
         /// <param name="address">The address.</param>
-        /// <param name="requestContext">Request context that will be used for this browser instance,
-        /// if null the Global Request Context will be used</param>
+        /// <param name="requestContext">(Optional) Request context that will be used for this browser instance, if null the Global
+        /// Request Context will be used.</param>
         public ChromiumWebBrowser(string address, IRequestContext requestContext = null)
         {
             Dock = DockStyle.Fill;
@@ -435,12 +508,13 @@ namespace CefSharp.WinForms
 
                 if (FocusHandler == null)
                 {
-                    FocusHandler = new DefaultFocusHandler();
-                }
-
-                if (ResourceHandlerFactory == null)
-                {
-                    ResourceHandlerFactory = new DefaultResourceHandlerFactory();
+                    //If the WinForms UI thread and the CEF UI thread are one in the same
+                    //then we don't need the FocusHandler, it's only required when using
+                    //MultiThreadedMessageLoop (the default)
+                    if (!Cef.CurrentlyOnThread(CefThreadIds.TID_UI))
+                    {
+                        FocusHandler = new DefaultFocusHandler();
+                    }
                 }
 
                 if (browserSettings == null)
@@ -487,6 +561,7 @@ namespace CefSharp.WinForms
         {
             if (disposing)
             {
+                CanExecuteJavascriptInMainFrame = false;
                 IsBrowserInitialized = false;
 
                 // Don't maintain a reference to event listeners anylonger:
@@ -499,6 +574,7 @@ namespace CefSharp.WinForms
                 LoadingStateChanged = null;
                 StatusMessage = null;
                 TitleChanged = null;
+                JavascriptMessageReceived = null;
 
                 // Release reference to handlers, except LifeSpanHandler which is done after Disposing
                 // ManagedCefBrowserAdapter otherwise the ILifeSpanHandler.DoClose will not be invoked.
@@ -517,6 +593,17 @@ namespace CefSharp.WinForms
                     managedCefBrowserAdapter.Dispose();
                     managedCefBrowserAdapter = null;
                 }
+
+                //Dispose of BrowserSettings if we created it, if user created then they're responsible
+                if (browserSettings.FrameworkCreated)
+                {
+                    browserSettings.Dispose();
+                }
+
+                browserSettings = null;
+
+                parkingControl?.Dispose();
+                parkingControl = null;
 
                 // LifeSpanHandler is set to null after managedCefBrowserAdapter.Dispose so ILifeSpanHandler.DoClose
                 // is called.
@@ -548,7 +635,7 @@ namespace CefSharp.WinForms
         /// <summary>
         /// The javascript object repository, one repository per ChromiumWebBrowser instance.
         /// </summary>
-        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)]
+        [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public IJavascriptObjectRepository JavascriptObjectRepository
         {
             get
@@ -579,6 +666,25 @@ namespace CefSharp.WinForms
             base.OnHandleCreated(e);
         }
 
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            //When the Control is being Recreated then we'll park
+            //the browser (set to a temp parent) and assign to
+            //our new handle when it's ready.
+            if (RecreatingHandle || ParkControlOnHandleDestroyed)
+            {
+                parkingControl = new Control();
+                parkingControl.CreateControl();
+
+                var host = this.GetBrowserHost();
+                var hwnd = host.GetWindowHandle();
+
+                NativeMethodWrapper.SetWindowParent(hwnd, parkingControl.Handle);
+            }
+
+            base.OnHandleDestroyed(e);
+        }
+
         /// <summary>
         /// Override this method to handle creation of WindowInfo. This method can be used to customise aspects of
         /// browser creation including configuration of settings such as <see cref="IWindowInfo.ExStyle"/>.
@@ -591,20 +697,20 @@ namespace CefSharp.WinForms
         /// To re-enable Window Activation then remove WS_EX_NOACTIVATE from ExStyle
         /// <code>
         /// const uint WS_EX_NOACTIVATE = 0x08000000;
-        /// windowInfo.ExStyle &= ~WS_EX_NOACTIVATE;
+        /// windowInfo.ExStyle &amp;= ~WS_EX_NOACTIVATE;
         ///</code>
         /// </example>
         protected virtual IWindowInfo CreateBrowserWindowInfo(IntPtr handle)
         {
-            //TODO: If we start adding more consts then extract them into a common class
-            //Possibly in the CefSharp assembly and move the WPF ones into there as well.
-            const uint WS_EX_NOACTIVATE = 0x08000000;
-
             var windowInfo = new WindowInfo();
             windowInfo.SetAsChild(handle);
-            //Disable Window activation by default
-            //https://bitbucket.org/chromiumembedded/cef/issues/1856/branch-2526-cef-activates-browser-window
-            windowInfo.ExStyle |= WS_EX_NOACTIVATE;
+
+            if (!ActivateBrowserOnCreation)
+            {
+                //Disable Window activation by default
+                //https://bitbucket.org/chromiumembedded/cef/issues/1856/branch-2526-cef-activates-browser-window
+                windowInfo.ExStyle |= WS_EX_NOACTIVATE;
+            }
 
             return windowInfo;
         }
@@ -616,19 +722,30 @@ namespace CefSharp.WinForms
 
             if (((IWebBrowserInternal)this).HasParent == false)
             {
-                if (IsBrowserInitialized == false || browser == null)
+                //If we are Recreating our handle we will have re-parented our
+                //browser to parkingControl. We'll assign the browser to our newly
+                //created handle now.
+                if ((RecreatingHandle || ParkControlOnHandleDestroyed) && IsBrowserInitialized && browser != null)
                 {
-                    var windowInfo = CreateBrowserWindowInfo(Handle);
+                    var host = this.GetBrowserHost();
+                    var hwnd = host.GetWindowHandle();
 
-                    managedCefBrowserAdapter.CreateBrowser(windowInfo, browserSettings as BrowserSettings, requestContext as RequestContext, Address);
+                    NativeMethodWrapper.SetWindowParent(hwnd, Handle);
 
-                    browserSettings = null;
+                    parkingControl.Dispose();
+                    parkingControl = null;
                 }
                 else
                 {
-                    //If the browser already exists we'll reparent it to the new Handle
-                    var browserHandle = browser.GetHost().GetWindowHandle();
-                    NativeMethodWrapper.SetWindowParent(browserHandle, Handle);
+                    var windowInfo = CreateBrowserWindowInfo(Handle);
+
+                    //We actually check if WS_EX_NOACTIVATE was set for instances
+                    //the user has override CreateBrowserWindowInfo and not called base.CreateBrowserWindowInfo
+                    removeExNoActivateStyle = (windowInfo.ExStyle & WS_EX_NOACTIVATE) == WS_EX_NOACTIVATE;
+
+                    initialAddressLoaded = !string.IsNullOrEmpty(Address);
+
+                    managedCefBrowserAdapter.CreateBrowser(windowInfo, browserSettings as BrowserSettings, requestContext as RequestContext, Address);
                 }
             }
         }
@@ -656,7 +773,14 @@ namespace CefSharp.WinForms
 
             ResizeBrowser();
 
-            IsBrowserInitializedChanged?.Invoke(this, new IsBrowserInitializedChangedEventArgs(IsBrowserInitialized));
+            //If Load was called after the call to CreateBrowser we'll call Load
+            //on the MainFrame
+            if (!initialAddressLoaded && !string.IsNullOrEmpty(Address))
+            {
+                browser.MainFrame.LoadUrl(Address);
+            }
+
+            IsBrowserInitializedChanged?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>
@@ -683,6 +807,18 @@ namespace CefSharp.WinForms
             CanGoBack = args.CanGoBack;
             CanGoForward = args.CanGoForward;
             IsLoading = args.IsLoading;
+
+            if (removeExNoActivateStyle && browser != null)
+            {
+                removeExNoActivateStyle = false;
+
+                var host = this.GetBrowserHost();
+                var hwnd = host.GetWindowHandle();
+                //Remove the WS_EX_NOACTIVATE style so that future mouse clicks inside the
+                //browser correctly activate and focus the browser. 
+                //https://github.com/chromiumembedded/cef/blob/9df4a54308a88fd80c5774d91c62da35afb5fd1b/tests/cefclient/browser/root_window_win.cc#L1088
+                NativeMethodWrapper.RemoveExNoActivateStyle(hwnd);
+            }
 
             var handler = LoadingStateChanged;
             if (handler != null)
@@ -783,6 +919,11 @@ namespace CefSharp.WinForms
             CanExecuteJavascriptInMainFrame = canExecute;
         }
 
+        void IWebBrowserInternal.SetJavascriptMessageReceived(JavascriptMessageReceivedEventArgs args)
+        {
+            JavascriptMessageReceived?.Invoke(this, args);
+        }
+
         /// <summary>
         /// Gets the browser adapter.
         /// </summary>
@@ -866,9 +1007,21 @@ namespace CefSharp.WinForms
         /// <returns>browser instance or null</returns>
         public IBrowser GetBrowser()
         {
+            this.ThrowExceptionIfDisposed();
             this.ThrowExceptionIfBrowserNotInitialized();
 
             return browser;
+        }
+
+        /// <summary>
+        /// Gets the default size of the control.
+        /// </summary>
+        /// <value>
+        /// The default <see cref="T:System.Drawing.Size" /> of the control.
+        /// </value>
+        protected override Size DefaultSize
+        {
+            get { return new Size(200, 100); }
         }
 
         /// <summary>
@@ -891,6 +1044,7 @@ namespace CefSharp.WinForms
                 {
                     return true;
                 }
+                case Keys.Shift | Keys.Tab:
                 case Keys.Shift | Keys.Right:
                 case Keys.Shift | Keys.Left:
                 case Keys.Shift | Keys.Up:

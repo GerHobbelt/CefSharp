@@ -47,6 +47,7 @@ namespace CefSharp
         static HashSet<IDisposable^>^ _disposables;
         static int _initializedThreadId;
         static bool _multiThreadedMessageLoop = true;
+        static bool _waitForBrowsersToCloseEnabled = false;
 
         static Cef()
         {
@@ -190,10 +191,17 @@ namespace CefSharp
                     "calling Cef.Initialize after you've created an instance of ChromiumWebBrowser, it must be before the first instance is created.");
             }
 
+            //Empty string is acceptable, the main application executable will be used
             if (cefSettings->BrowserSubprocessPath == nullptr)
             {
                 throw gcnew Exception("CefSettings BrowserSubprocessPath cannot be null.");
             }
+
+            PathCheck::AssertAbsolute(cefSettings->RootCachePath, "CefSettings.RootCachePath");
+            PathCheck::AssertAbsolute(cefSettings->CachePath, "CefSettings.CachePath");
+            PathCheck::AssertAbsolute(cefSettings->LocalesDirPath, "CefSettings.LocalesDirPath");
+            PathCheck::AssertAbsolute(cefSettings->BrowserSubprocessPath, "CefSettings.BrowserSubprocessPath");
+
 
             if (performDependencyCheck)
             {
@@ -201,7 +209,7 @@ namespace CefSharp
             }
             else if (!File::Exists(cefSettings->BrowserSubprocessPath))
             {
-                throw gcnew FileNotFoundException("CefSettings BrowserSubprocessPath not found.", cefSettings->BrowserSubprocessPath);
+                throw gcnew FileNotFoundException("CefSettings.BrowserSubprocessPath not found.", cefSettings->BrowserSubprocessPath);
             }
 
             UIThreadTaskFactory = gcnew TaskFactory(gcnew CefTaskScheduler(TID_UI));
@@ -414,6 +422,27 @@ namespace CefSharp
             }
 
             return nullptr;
+        }
+
+        /// <summary>
+        /// Called prior to calling Cef.Shutdown, this diposes of any remaning
+        /// ChromiumWebBrowser instances. In WPF this is used from Dispatcher.ShutdownStarted
+        /// to release the unmanaged resources held by the ChromiumWebBrowser instances.
+        /// Generally speaking you don't need to call this yourself.
+        /// </summary>
+        static void PreShutdown()
+        {
+            msclr::lock l(_sync);
+
+            for each(IDisposable^ diposable in Enumerable::ToList(_disposables))
+            {
+                delete diposable;
+            }
+
+            _disposables->Clear();
+
+            GC::Collect();
+            GC::WaitForPendingFinalizers();
         }
 
         /// <summary>
@@ -776,7 +805,40 @@ namespace CefSharp
                 extension = extension->Substring(1, extension->Length - 1);
             }
 
-            return StringUtils::ToClr(CefGetMimeType(StringUtils::ToNative(extension)));
+            auto mimeType = StringUtils::ToClr(CefGetMimeType(StringUtils::ToNative(extension)));
+
+            //Lookup to see if we have a custom mapping
+            //MimeTypeMapping::GetCustomMapping will Fallback
+            //to application/octet-stream if no mapping found
+            if (String::IsNullOrEmpty(mimeType))
+            {
+                return MimeTypeMapping::GetCustomMapping(extension);
+            }
+
+            return mimeType;
+        }
+
+        /// <summary>
+        /// WaitForBrowsersToClose is not enabled by default, call this method
+        /// before Cef.Initialize to enable. If you aren't calling Cef.Initialize
+        /// explicitly then this should be called before creating your first
+        /// ChromiumWebBrowser instance.
+        /// </summary>
+        static void EnableWaitForBrowsersToClose()
+        {
+            if (_waitForBrowsersToCloseEnabled)
+            {
+                return;
+            }
+
+            if (IsInitialized)
+            {
+                throw gcnew Exception("Must be enabled before Cef.Initialize is called. ");
+            }
+
+            _waitForBrowsersToCloseEnabled = true;
+
+            BrowserRefCounter::Instance = gcnew BrowserRefCounter();
         }
 
         /// <summary>
@@ -790,6 +852,11 @@ namespace CefSharp
         /// </summary>
         static void WaitForBrowsersToClose()
         {
+            if (!_waitForBrowsersToCloseEnabled)
+            {
+                throw gcnew Exception("This feature is currently disabled. Call Cef.EnableWaitForBrowsersToClose before calling Cef.Initialize to enable.");
+            }
+
             //Dispose of any remaining browser instances
             for each(IDisposable^ diposable in Enumerable::ToList(_disposables))
             {

@@ -4,6 +4,7 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using CefSharp.Example.Properties;
 using CefSharp.Example.Proxy;
@@ -62,7 +63,12 @@ namespace CefSharp.Example
             settings.RemoteDebuggingPort = 8088;
             //The location where cache data will be stored on disk. If empty an in-memory cache will be used for some features and a temporary disk cache for others.
             //HTML5 databases such as localStorage will only persist across sessions if a cache path is specified. 
-            settings.CachePath = "cache";
+            settings.RootCachePath = Path.GetFullPath("cache");
+            //If non-null then CachePath must be equal to or a child of RootCachePath
+            //We're using a sub folder.
+            //
+            settings.CachePath = Path.GetFullPath("cache\\global");
+            //settings.UserAgent = "CefSharp Browser" + Cef.CefSharpVersion; // Example User Agent
 
             //TODO: [GHo] set custom browser UserAgent; see Google Scholar + bibTex tests...
             settings.UserAgent = "CefSharp Browser v" + Cef.CefSharpVersion; // Example User Agent
@@ -156,7 +162,7 @@ namespace CefSharp.Example
             if (DebuggingSubProcess)
             {
                 var architecture = Environment.Is64BitProcess ? "x64" : "x86";
-                settings.BrowserSubprocessPath = "..\\..\\..\\..\\CefSharp.BrowserSubprocess\\bin\\" + architecture + "\\Debug\\CefSharp.BrowserSubprocess.exe";
+                settings.BrowserSubprocessPath = Path.GetFullPath("..\\..\\..\\..\\CefSharp.BrowserSubprocess\\bin\\" + architecture + "\\Debug\\CefSharp.BrowserSubprocess.exe");
             }
 
             settings.RegisterScheme(new CefCustomScheme

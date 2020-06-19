@@ -156,6 +156,11 @@ namespace CefSharp.Wpf
         public bool EnableResizeHackForIssue2779 { get; set; }
 
         /// <summary>
+        /// Used as workaround for issue https://github.com/cefsharp/CefSharp/issues/3021
+        /// </summary>
+        private long canExecuteJavascriptInMainFrameId;
+
+        /// <summary>
         /// Gets a value indicating whether this instance is disposed.
         /// </summary>
         /// <value><see langword="true" /> if this instance is disposed; otherwise, <see langword="false" />.</value>
@@ -489,13 +494,88 @@ namespace CefSharp.Wpf
 
             if (CefSharpSettings.ShutdownOnExit)
             {
-                var app = Application.Current;
-
-                if (app != null)
+                //Use Dispatcher.FromThread as it returns null if no dispatcher
+                //is avaliable for this thread.
+                var dispatcher = Dispatcher.FromThread(Thread.CurrentThread);
+                if (dispatcher == null)
                 {
-                    app.Exit += OnApplicationExit;
+                    //No dispatcher then we'll rely on Application.Exit
+                    var app = Application.Current;
+
+                    if (app != null)
+                    {
+                        app.Exit += OnApplicationExit;
+                    }
                 }
+                else
+                {
+                    dispatcher.ShutdownStarted += DispatcherShutdownStarted;
+                    dispatcher.ShutdownFinished += DispatcherShutdownFinished;
+                }
+
             }
+        }
+
+        /// <summary>
+        /// Handles Dispatcher Shutdown
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">eventargs</param>
+        private static void DispatcherShutdownStarted(object sender, EventArgs e)
+        {
+            var dispatcher = (Dispatcher)sender;
+
+            dispatcher.ShutdownStarted -= DispatcherShutdownStarted;
+
+            if (!DesignMode)
+            {
+                CefPreShutdown();
+            }
+        }
+
+        private static void DispatcherShutdownFinished(object sender, EventArgs e)
+        {
+            var dispatcher = (Dispatcher)sender;
+
+            dispatcher.ShutdownFinished -= DispatcherShutdownFinished;
+
+            if (!DesignMode)
+            {
+                CefShutdown();
+            }
+        }
+
+        /// <summary>
+        /// Handles the <see cref="E:ApplicationExit" /> event.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="ExitEventArgs"/> instance containing the event data.</param>
+        private static void OnApplicationExit(object sender, ExitEventArgs e)
+        {
+            if (!DesignMode)
+            {
+                CefShutdown();
+            }
+        }
+
+        /// <summary>
+        /// Required for designer support - this method cannot be inlined as the designer
+        /// will attempt to load libcef.dll and will subsiquently throw an exception.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void CefPreShutdown()
+        {
+            Cef.PreShutdown();
+        }
+
+        /// <summary>
+        /// Required for designer support - this method cannot be inlined as the designer
+        /// will attempt to load libcef.dll and will subsiquently throw an exception.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void CefShutdown()
+        {
+            Cef.Shutdown();
         }
 
         /// <summary>
@@ -1203,8 +1283,21 @@ namespace CefSharp.Wpf
             LoadError?.Invoke(this, args);
         }
 
-        void IWebBrowserInternal.SetCanExecuteJavascriptOnMainFrame(bool canExecute)
+        void IWebBrowserInternal.SetCanExecuteJavascriptOnMainFrame(long frameId, bool canExecute)
         {
+            //When loading pages of a different origin the frameId changes
+            //For the first loading of a new origin the messages from the render process
+            //Arrive in a different order than expected, the OnContextCreated message
+            //arrives before the OnContextReleased, then the message for OnContextReleased
+            //incorrectly overrides the value
+            //https://github.com/cefsharp/CefSharp/issues/3021
+
+            if (frameId > canExecuteJavascriptInMainFrameId && !canExecute)
+            {
+                return;
+            }
+
+            canExecuteJavascriptInMainFrameId = frameId;
             CanExecuteJavascriptInMainFrame = canExecute;
         }
 
@@ -2150,29 +2243,6 @@ namespace CefSharp.Wpf
         }
 
         /// <summary>
-        /// Handles the <see cref="E:ApplicationExit" /> event.
-        /// </summary>
-        /// <param name="sender">The sender.</param>
-        /// <param name="e">The <see cref="ExitEventArgs"/> instance containing the event data.</param>
-        private static void OnApplicationExit(object sender, ExitEventArgs e)
-        {
-            if (!DesignMode)
-            {
-                CefShutdown();
-            }
-        }
-
-        /// <summary>
-        /// Required for designer support - this method cannot be inlined as the designer
-        /// will attempt to load libcef.dll and will subsiquently throw an exception.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void CefShutdown()
-        {
-            Cef.Shutdown();
-        }
-
-        /// <summary>
         /// Handles the <see cref="E:Loaded" /> event.
         /// </summary>
         /// <param name="sender">The sender.</param>
@@ -2352,7 +2422,7 @@ namespace CefSharp.Wpf
         /// <param name="e">The <see cref="T:System.Windows.Input.KeyEventArgs" /> that contains the event data.</param>
         protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
-            if (!e.Handled)
+            if (!e.Handled && browser != null)
             {
                 WpfKeyboardHandler.HandleKeyPress(e);
             }
@@ -2367,7 +2437,7 @@ namespace CefSharp.Wpf
         /// <param name="e">The <see cref="T:System.Windows.Input.KeyEventArgs" /> that contains the event data.</param>
         protected override void OnPreviewKeyUp(KeyEventArgs e)
         {
-            if (!e.Handled)
+            if (!e.Handled && browser != null)
             {
                 WpfKeyboardHandler.HandleKeyPress(e);
             }
@@ -2381,7 +2451,7 @@ namespace CefSharp.Wpf
         /// <param name="e">The <see cref="TextCompositionEventArgs"/> instance containing the event data.</param>
         protected override void OnPreviewTextInput(TextCompositionEventArgs e)
         {
-            if (!e.Handled)
+            if (!e.Handled && browser != null)
             {
                 WpfKeyboardHandler.HandleTextInput(e);
             }

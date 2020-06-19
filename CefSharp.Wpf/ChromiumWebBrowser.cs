@@ -156,6 +156,14 @@ namespace CefSharp.Wpf
         public bool EnableResizeHackForIssue2779 { get; set; }
 
         /// <summary>
+        /// Number of miliseconds to wait after resizing the browser when it first
+        /// becomes visible. After the delay the browser will revert to it's
+        /// original size.
+        /// Hack to work around issue https://github.com/cefsharp/CefSharp/issues/2779
+        /// </summary>
+        public int ResizeHackForIssue2279DelayInMs { get; set; }
+
+        /// <summary>
         /// Used as workaround for issue https://github.com/cefsharp/CefSharp/issues/3021
         /// </summary>
         private long canExecuteJavascriptInMainFrameId;
@@ -653,6 +661,7 @@ namespace CefSharp.Wpf
         private void NoInliningConstructor()
         {
             EnableResizeHackForIssue2779 = true;
+            ResizeHackForIssue2279DelayInMs = 50;
 
             //Initialize CEF if it hasn't already been initialized
             if (!Cef.IsInitialized)
@@ -2908,10 +2917,10 @@ namespace CefSharp.Wpf
                 var host = browser?.GetHost();
                 if (host != null && !host.IsDisposed)
                 {
-                    resizeHackForIssue2779Size = new Structs.Size(viewRect.Width - 1, viewRect.Height - 1);
+                    resizeHackForIssue2779Size = new Structs.Size(viewRect.Width + 1, viewRect.Height + 1);
                     host.WasResized();
 
-                    await Task.Delay(delayInMs);
+                    await Task.Delay(ResizeHackForIssue2279DelayInMs);
 
                     if (!host.IsDisposed)
                     {

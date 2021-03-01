@@ -1,35 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\packages\Microsoft.Net.Compilers.3.8.0\build\Microsoft.Net.Compilers.props" Condition="Exists('..\packages\Microsoft.Net.Compilers.3.8.0\build\Microsoft.Net.Compilers.props')" />
   <Import Project="..\packages\Microsoft.Net.Compilers.3.4.0\build\Microsoft.Net.Compilers.props" Condition="Exists('..\packages\Microsoft.Net.Compilers.3.4.0\build\Microsoft.Net.Compilers.props')" />
-  <Import Project="..\packages\cef.redist.x86.79.1.36\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.79.1.36\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.79.1.36\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.79.1.36\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.81.2.21\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.81.2.21\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.81.2.21\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.81.2.21\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.81.3.10\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.81.3.10\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.81.3.10\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.81.3.10\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.83.4.2\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.83.4.2\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.83.4.2\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.83.4.2\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.84.3.10\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.84.3.10\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.84.3.10\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.84.3.10\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.84.4.1\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.84.4.1\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.84.4.1\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.84.4.1\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.85.3.6\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.85.3.6\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.85.3.6\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.85.3.6\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.85.3.12\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.85.3.12\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.85.3.12\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.85.3.12\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.85.3.13\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.85.3.13\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.85.3.13\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.85.3.13\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.86.0.24\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.86.0.24\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.86.0.24\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.86.0.24\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.87.1.13\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.87.1.13\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.87.1.13\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.87.1.13\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.88.2.4\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.88.2.4\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.88.2.4\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.88.2.4\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\cef.redist.x86.88.2.9\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.88.2.9\build\cef.redist.x86.props')" />
-  <Import Project="..\packages\cef.redist.x64.88.2.9\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.88.2.9\build\cef.redist.x64.props')" />
   <Import Project="..\packages\cef.redist.x86.89.0.5\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.89.0.5\build\cef.redist.x86.props')" />
   <Import Project="..\packages\cef.redist.x64.89.0.5\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.89.0.5\build\cef.redist.x64.props')" />
-  <Import Project="..\packages\Microsoft.Net.Compilers.2.9.0\build\Microsoft.Net.Compilers.props" Condition="Exists('..\packages\Microsoft.Net.Compilers.2.9.0\build\Microsoft.Net.Compilers.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -40,7 +14,6 @@
     <RootNamespace>CefSharp.OffScreen.Example</RootNamespace>
     <AssemblyName>CefSharp.OffScreen.Example</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
@@ -95,6 +68,11 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Linq" />
+    <Reference Include="System.Runtime" />
+    <Reference Include="System.Runtime.InteropServices" />
+    <Reference Include="System.Runtime.InteropServices.RuntimeInformation" />
+    <Reference Include="System.Threading.Thread" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
@@ -134,5 +112,6 @@
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\Microsoft.Net.Compilers.3.4.0\build\Microsoft.Net.Compilers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Net.Compilers.3.4.0\build\Microsoft.Net.Compilers.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Net.Compilers.3.8.0\build\Microsoft.Net.Compilers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Net.Compilers.3.8.0\build\Microsoft.Net.Compilers.props'))" />
   </Target>
 </Project>

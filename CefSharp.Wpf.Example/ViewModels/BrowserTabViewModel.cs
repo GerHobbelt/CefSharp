@@ -232,12 +232,12 @@ namespace CefSharp.Wpf.Example.ViewModels
                             }
                         };
 
-                            WebBrowser.FrameLoadEnd += async (s, args) =>
-                            {
-                                FrameLoadEndEventArgs a = args as FrameLoadEndEventArgs;
-                        string rv = "";
+                        WebBrowser.FrameLoadEnd += async (s, args) =>
+                        {
+                            FrameLoadEndEventArgs a = args as FrameLoadEndEventArgs;
+                            string rv = "";
 
-        SV vis = new SV(ref rv);
+                            SV vis = new SV(ref rv);
                             a.Frame.GetSource(vis);
                             rv += "xxxxxxxx";
                             bool d = a.Browser.HasDocument;

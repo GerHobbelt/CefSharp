@@ -6,7 +6,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using CefSharp.Example.Properties;
 using CefSharp.Example.Proxy;
 using CefSharp.SchemeHandler;
 
@@ -39,6 +38,9 @@ namespace CefSharp.Example
         public const string RenderProcessCrashedUrl = "http://processcrashed";
         public const string TestUnicodeResourceUrl = "http://test/resource/loadUnicode";
         public const string PopupParentUrl = "http://www.w3schools.com/jsref/tryit.asp?filename=tryjsref_win_close";
+        public const string ChromeInternalUrls = "chrome://chrome-urls";
+        public const string ChromeNetInternalUrls = "chrome://net-internals";
+        public const string ChromeProcessInternalUrls = "chrome://process-internals";
 
         // Use when debugging the actual SubProcess, to make breakpoints etc. inside that project work.
         private static readonly bool DebuggingSubProcess = Debugger.IsAttached;
@@ -221,8 +223,6 @@ namespace CefSharp.Example
                                                                     hostName: "cefsharp", //Optional param no hostname checking if null
                                                                     defaultPage: "home.html") //Optional param will default to index.html
             });
-
-            settings.RegisterExtension(new V8Extension("cefsharp/example", Resources.extension));
 
             //This must be set before Cef.Initialized is called
             CefSharpSettings.FocusedNodeChangedEnabled = true;

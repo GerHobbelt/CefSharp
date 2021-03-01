@@ -27,6 +27,8 @@
   <Import Project="..\packages\cef.redist.x64.88.2.4\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.88.2.4\build\cef.redist.x64.props')" />
   <Import Project="..\packages\cef.redist.x86.88.2.9\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.88.2.9\build\cef.redist.x86.props')" />
   <Import Project="..\packages\cef.redist.x64.88.2.9\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.88.2.9\build\cef.redist.x64.props')" />
+  <Import Project="..\packages\cef.redist.x86.89.0.5\build\cef.redist.x86.props" Condition="Exists('..\packages\cef.redist.x86.89.0.5\build\cef.redist.x86.props')" />
+  <Import Project="..\packages\cef.redist.x64.89.0.5\build\cef.redist.x64.props" Condition="Exists('..\packages\cef.redist.x64.89.0.5\build\cef.redist.x64.props')" />
   <Import Project="..\packages\Microsoft.Net.Compilers.2.9.0\build\Microsoft.Net.Compilers.props" Condition="Exists('..\packages\Microsoft.Net.Compilers.2.9.0\build\Microsoft.Net.Compilers.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -38,6 +40,7 @@
     <RootNamespace>CefSharp.OffScreen.Example</RootNamespace>
     <AssemblyName>CefSharp.OffScreen.Example</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>

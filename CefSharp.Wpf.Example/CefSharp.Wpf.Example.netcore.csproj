@@ -41,6 +41,8 @@
         <PackageReference Include="cef.redist.x64" Version="88.2.4" />
         <PackageReference Include="cef.redist.x86" Version="88.2.9" />
         <PackageReference Include="cef.redist.x64" Version="88.2.9" />
+        <PackageReference Include="cef.redist.x86" Version="89.0.5" />
+        <PackageReference Include="cef.redist.x64" Version="89.0.5" />
     </ItemGroup>
 
     <ItemGroup>

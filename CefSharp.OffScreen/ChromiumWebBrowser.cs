@@ -12,6 +12,7 @@ using CefSharp.Internals;
 using CefSharp.Structs;
 using CefSharp.Web;
 using Point = System.Drawing.Point;
+using Range = CefSharp.Structs.Range;
 using Size = System.Drawing.Size;
 
 namespace CefSharp.OffScreen
@@ -20,7 +21,7 @@ namespace CefSharp.OffScreen
     /// An offscreen instance of Chromium that you can use to take
     /// snapshots or evaluate JavaScript.
     /// </summary>
-    public class ChromiumWebBrowser : IRenderWebBrowser
+    public partial class ChromiumWebBrowser : IRenderWebBrowser
     {
         /// <summary>
         /// The managed cef browser adapter
@@ -301,7 +302,7 @@ namespace CefSharp.OffScreen
         public bool CanExecuteJavascriptInMainFrame { get; private set; }
 
         /// <summary>
-        /// Create a new OffScreen Chromium Browser. If you use <see cref="CefSharpSettings.LegacyJavascriptBindingEnabled"/> = true then you must
+        /// Create a new OffScreen Chromium Browser. If you use <see cref="JavascriptBindingSettings.LegacyBindingEnabled"/> = true then you must
         /// set <paramref name="automaticallyCreateBrowser"/> to false and call <see cref="CreateBrowser"/> after the objects are registered.
         /// </summary>
         /// <param name="html">html string to be initially loaded in the browser.</param>
@@ -315,7 +316,7 @@ namespace CefSharp.OffScreen
         }
 
         /// <summary>
-        /// Create a new OffScreen Chromium Browser. If you use <see cref="CefSharpSettings.LegacyJavascriptBindingEnabled"/> = true then you must
+        /// Create a new OffScreen Chromium Browser. If you use <see cref="JavascriptBindingSettings.LegacyBindingEnabled"/> = true then you must
         /// set <paramref name="automaticallyCreateBrowser"/> to false and call <see cref="CreateBrowser"/> after the objects are registered.
         /// </summary>
         /// <param name="address">Initial address (url) to load</param>

@@ -5,7 +5,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Schedulers;
+using CefSharp.Internals.Tasks;
 
 namespace CefSharp.Internals
 {
@@ -49,6 +49,7 @@ namespace CefSharp.Internals
             object result = null;
             string exception;
             var success = false;
+            var nameConverter = repository.NameConverter;
 
             //make sure we don't throw exceptions in the executor task
             try
@@ -84,7 +85,8 @@ namespace CefSharp.Internals
                 FrameId = methodInvocation.FrameId,
                 Message = exception,
                 Result = result,
-                Success = success
+                Success = success,
+                NameConverter = nameConverter
             };
         }
     }

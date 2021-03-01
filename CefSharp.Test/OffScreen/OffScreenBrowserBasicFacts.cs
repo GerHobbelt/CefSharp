@@ -2,6 +2,7 @@
 //
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,7 +47,7 @@ namespace CefSharp.Test.OffScreen
 
                 var mainFrame = browser.GetMainFrame();
                 Assert.True(mainFrame.IsValid);
-                Assert.True(mainFrame.Url.Contains("www.google"));
+                Assert.Contains("www.google", mainFrame.Url);
 
                 output.WriteLine("Url {0}", mainFrame.Url);
             }
@@ -73,7 +74,7 @@ namespace CefSharp.Test.OffScreen
 
             browser.Dispose();
 
-            Assert.Equal(1, BrowserRefCounter.Instance.Count);
+            Assert.True(BrowserRefCounter.Instance.Count <= 1);
 
             Cef.WaitForBrowsersToClose();
 
@@ -89,7 +90,7 @@ namespace CefSharp.Test.OffScreen
 
                 var mainFrame = browser.GetMainFrame();
                 Assert.True(mainFrame.IsValid);
-                Assert.True(mainFrame.Url.Contains("www.google"));
+                Assert.Contains("www.google", mainFrame.Url);
 
                 var javascriptResponse = await browser.EvaluateScriptAsync("2 + 2");
                 Assert.True(javascriptResponse.Success);
@@ -110,22 +111,61 @@ namespace CefSharp.Test.OffScreen
 
             var boundObj = new AsyncBoundObject();
 
-            var browser = new ChromiumWebBrowser("https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/url");
-            browser.JavascriptObjectRepository.Register("bound", boundObj, true);
+            using (var browser = new ChromiumWebBrowser("https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/url"))
+            {
+#if NETCOREAPP
+                browser.JavascriptObjectRepository.Register("bound", boundObj);
+#else
+                browser.JavascriptObjectRepository.Register("bound", boundObj, true);
+#endif
 
-            await browser.LoadPageAsync();
-            browser.GetMainFrame().ExecuteJavaScriptAsync(script);
+                await browser.LoadPageAsync();
+                browser.GetMainFrame().ExecuteJavaScriptAsync(script);
 
-            await Task.Delay(2000);
-            Assert.True(boundObj.MethodCalled);
+                await Task.Delay(2000);
+                Assert.True(boundObj.MethodCalled);
 
-            boundObj.MethodCalled = false;
+                boundObj.MethodCalled = false;
 
-            browser.Load("https://www.google.com");
-            await browser.LoadPageAsync();
-            browser.GetMainFrame().ExecuteJavaScriptAsync(script);
-            await Task.Delay(2000);
-            Assert.True(boundObj.MethodCalled);
+                browser.Load("https://www.google.com");
+                await browser.LoadPageAsync();
+                browser.GetMainFrame().ExecuteJavaScriptAsync(script);
+                await Task.Delay(2000);
+                Assert.True(boundObj.MethodCalled);
+            }
+        }
+
+        [Fact]
+        public async Task JavascriptBindingMultipleObjects()
+        {
+            const string script = @"
+                (async function()
+                {
+                    await CefSharp.BindObjectAsync('first');
+                    await CefSharp.BindObjectAsync('first', 'second');
+                })();";
+
+            var objectNames = new List<string>();
+            var boundObj = new AsyncBoundObject();
+
+            using (var browser = new ChromiumWebBrowser("https://www.google.com"))
+            {
+                browser.JavascriptObjectRepository.ResolveObject += (s, e) =>
+                {
+                    objectNames.Add(e.ObjectName);
+#if NETCOREAPP
+                    e.ObjectRepository.Register(e.ObjectName, boundObj);
+#else
+                    e.ObjectRepository.Register(e.ObjectName, boundObj, isAsync: true);
+#endif
+                };
+
+                await browser.LoadPageAsync();
+                browser.GetMainFrame().ExecuteJavaScriptAsync(script);
+
+                await Task.Delay(2000);
+                Assert.Equal(new[] { "first", "second" }, objectNames);
+            }
         }
 
         /// <summary>

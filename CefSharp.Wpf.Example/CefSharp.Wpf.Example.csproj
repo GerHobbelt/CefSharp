@@ -126,7 +126,6 @@
     <Compile Include="Controls\NonReloadingTabControl.cs" />
     <Compile Include="Controls\TouchKeyboard\InputPaneRcw.cs" />
     <Compile Include="Controls\TouchKeyboard\TouchKeyboardEventManager.cs" />
-    <Compile Include="Handlers\AccessibilityHandler.cs" />
     <Compile Include="Handlers\DisplayHandler.cs" />
     <Compile Include="Handlers\DragHandler.cs" />
     <Compile Include="Handlers\MenuHandler.cs" />

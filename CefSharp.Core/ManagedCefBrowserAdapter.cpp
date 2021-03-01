@@ -39,27 +39,46 @@ void ManagedCefBrowserAdapter::CreateBrowser(IWindowInfo^ windowInfo, BrowserSet
             "BrowserSettings created by CefSharp are automatically disposed, to control the lifecycle create and set your own instance.");
     }
 
+    auto objectRepository = _javaScriptObjectRepository;
+
+    //It's no longer possible to change these settings
+    objectRepository->Settings->Freeze();
+
     CefRefPtr<CefDictionaryValue> extraInfo = CefDictionaryValue::Create();
     auto legacyBindingEnabled = false;
 
-    if (CefSharpSettings::LegacyJavascriptBindingEnabled)
+    if (objectRepository->Settings->LegacyBindingEnabled)
     {
-        auto objectRepository = JavascriptObjectRepository;
+        auto legacyBoundObjects = objectRepository->GetLegacyBoundObjects();
 
         legacyBindingEnabled = objectRepository->HasBoundObjects;
 
-        //For legacy binding we only add values if we have bond objects
+        //For legacy binding we only add values if we have bond objects.
         if (legacyBindingEnabled)
         {
             auto listValue = CefListValue::Create();
 
-            SerializeJsObjects(objectRepository->GetObjects(nullptr), listValue, 0);
+            SerializeJsObjects(legacyBoundObjects, listValue, 0);
 
             extraInfo->SetList("LegacyBindingObjects", listValue);
         }
     }
 
     extraInfo->SetBool("LegacyBindingEnabled", legacyBindingEnabled);
+
+    if (!String::IsNullOrEmpty(objectRepository->Settings->JavascriptBindingApiGlobalObjectName))
+    {
+        auto globalObjName = objectRepository->Settings->JavascriptBindingApiGlobalObjectName;
+
+        if (StringCheck::IsFirstCharacterLowercase(globalObjName))
+        {
+            extraInfo->SetString("JsBindingPropertyNameCamelCase", StringUtils::ToNative(globalObjName));
+        }
+        else
+        {
+            extraInfo->SetString("JsBindingPropertyName", StringUtils::ToNative(globalObjName));
+        }
+    }
 
     if (!CefBrowserHost::CreateBrowser(*cefWindowInfoWrapper->GetWindowInfo(), _clientAdapter.get(), addressNative,
         *browserSettings->_browserSettings, extraInfo, static_cast<CefRefPtr<CefRequestContext>>(requestContext)))
@@ -70,6 +89,7 @@ void ManagedCefBrowserAdapter::CreateBrowser(IWindowInfo^ windowInfo, BrowserSet
     delete windowInfo;
 }
 
+#ifndef NETCOREAPP
 // NOTE: This was moved out of OnAfterBrowserCreated to prevent the System.ServiceModel assembly from being loaded when WCF is not enabled.
 __declspec(noinline) void ManagedCefBrowserAdapter::InitializeBrowserProcessServiceHost(IBrowser^ browser)
 {
@@ -105,21 +125,24 @@ __declspec(noinline) void ManagedCefBrowserAdapter::DisposeBrowserProcessService
         _browserProcessServiceHost = nullptr;
     }
 }
+#endif
 
 void ManagedCefBrowserAdapter::OnAfterBrowserCreated(IBrowser^ browser)
 {
     if (!_isDisposed)
     {
         _browserWrapper = browser;
-        _javascriptCallbackFactory->BrowserAdapter = gcnew WeakReference(this);
+        _javascriptCallbackFactory->BrowserAdapter = gcnew WeakReference<IBrowserAdapter^>(this);
 
         //Browser has been initialized, it's now too late to register a sync JSB object if Wcf wasn't enabled
         _javaScriptObjectRepository->IsBrowserInitialized = true;
 
+#ifndef NETCOREAPP
         if (CefSharpSettings::WcfEnabled)
         {
             InitializeBrowserProcessServiceHost(browser);
         }
+#endif
 
         if (_webBrowserInternal != nullptr)
         {

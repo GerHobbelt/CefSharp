@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -21,6 +22,7 @@ using CefSharp.Wpf.Rendering;
 using Microsoft.Win32.SafeHandles;
 using CursorType = CefSharp.Enums.CursorType;
 using Point = System.Windows.Point;
+using Range = CefSharp.Structs.Range;
 using Rect = CefSharp.Structs.Rect;
 using Size = System.Windows.Size;
 
@@ -33,7 +35,7 @@ namespace CefSharp.Wpf
     /// <seealso cref="CefSharp.Wpf.IWpfWebBrowser" />
     [TemplatePart(Name = PartImageName, Type = typeof(Image))]
     [TemplatePart(Name = PartPopupImageName, Type = typeof(Image))]
-    public class ChromiumWebBrowser : Control, IRenderWebBrowser, IWpfWebBrowser
+    public partial class ChromiumWebBrowser : Control, IRenderWebBrowser, IWpfWebBrowser
     {
         /// <summary>
         /// TemplatePart Name constant for the Image used to represent the browser
@@ -2760,6 +2762,19 @@ namespace CefSharp.Wpf
 
                 e.Handled = true;
             }
+        }
+
+        protected override AutomationPeer OnCreateAutomationPeer()
+        {
+            var handler = AccessibilityHandler as Experimental.Accessibility.AccessibilityHandler;
+
+            if (handler == null)
+            {
+                return base.OnCreateAutomationPeer();
+            }
+
+            return handler.AutomationPeer;
+
         }
 
         /// <summary>

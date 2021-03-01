@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using CefSharp.JavascriptBinding;
 using CefSharp.ModelBinding;
 using Xunit;
 
@@ -21,6 +22,7 @@ namespace CefSharp.Test.Framework
             C
         }
 
+#pragma warning disable CS0649
         private class TestObject
         {
             public string AString;
@@ -29,6 +31,7 @@ namespace CefSharp.Test.Framework
             public double ADouble;
             public TestEnum AnEnum;
         }
+#pragma warning restore CS0649
 
         [Fact]
         public void BindsComplexObjects()
@@ -145,6 +148,41 @@ namespace CefSharp.Test.Framework
                 var actual = arr[i];
                 Assert.Equal(expected, actual);
             }
+        }
+
+        [Fact]
+        public void HonorsJavascriptNameConverter()
+        {
+            var namingConverter = new CamelCaseJavascriptNameConverter();
+            IBinder binder = new DefaultBinder(namingConverter);
+            var obj = new Dictionary<string, object>
+            {
+                { "aString", "SomeValue" },
+                { "aBool", true },
+            };
+
+            var result = (TestObject)binder.Bind(obj, typeof(TestObject));
+
+            Assert.Equal(obj["aString"], result.AString);
+            Assert.Equal(obj["aBool"], result.ABool);
+        }
+
+        [Fact]
+        public void HonorsJavascriptNameConverterLegacy()
+        {
+            var namingConverter = new LegacyCamelCaseJavascriptNameConverter();
+            IBinder binder = new DefaultBinder(namingConverter);
+
+            var obj = new Dictionary<string, object>
+            {
+                { "AString", "SomeValue" },
+                { "ABool", true },
+            };
+
+            var result = (TestObject)binder.Bind(obj, typeof(TestObject));
+
+            Assert.Equal(obj["AString"], result.AString);
+            Assert.Equal(obj["ABool"], result.ABool);
         }
     }
 }

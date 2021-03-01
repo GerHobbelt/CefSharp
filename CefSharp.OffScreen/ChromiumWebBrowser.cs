@@ -26,7 +26,7 @@ namespace CefSharp.OffScreen
         /// <summary>
         /// The managed cef browser adapter
         /// </summary>
-        private ManagedCefBrowserAdapter managedCefBrowserAdapter;
+        private IBrowserAdapter managedCefBrowserAdapter;
 
         /// <summary>
         /// Size of the Chromium viewport.
@@ -125,7 +125,7 @@ namespace CefSharp.OffScreen
         /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
         /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
         /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
-        /// (The exception to this is when your running with settings.MultiThreadedMessageLoop = false, then they'll be the same thread).
+        /// (The exception to this is when you're running with settings.MultiThreadedMessageLoop = false, then they'll be the same thread).
         /// </summary>
         public event EventHandler BrowserInitialized;
         /// <summary>
@@ -133,7 +133,7 @@ namespace CefSharp.OffScreen
         /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
         /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
         /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
-        /// (The exception to this is when your running with settings.MultiThreadedMessageLoop = false, then they'll be the same thread).
+        /// (The exception to this is when you're running with settings.MultiThreadedMessageLoop = false, then they'll be the same thread).
         /// </summary>
         public event EventHandler<AddressChangedEventArgs> AddressChanged;
         /// <summary>
@@ -141,7 +141,7 @@ namespace CefSharp.OffScreen
         /// It's important to note this event is fired on a CEF UI thread, which by default is not the same as your application UI
         /// thread. It is unwise to block on this thread for any length of time as your browser will become unresponsive and/or hang..
         /// To access UI elements you'll need to Invoke/Dispatch onto the UI Thread.
-        /// (The exception to this is when your running with settings.MultiThreadedMessageLoop = false, then they'll be the same thread).
+        /// (The exception to this is when you're running with settings.MultiThreadedMessageLoop = false, then they'll be the same thread).
         /// </summary>
         public event EventHandler<TitleChangedEventArgs> TitleChanged;
 
@@ -168,7 +168,7 @@ namespace CefSharp.OffScreen
         /// <param name="requestContext">See <see cref="RequestContext" /> for more details. Defaults to null</param>
         /// <param name="automaticallyCreateBrowser">automatically create the underlying Browser</param>
         /// <exception cref="System.InvalidOperationException">Cef::Initialize() failed</exception>
-        public ChromiumWebBrowser(HtmlString html, BrowserSettings browserSettings = null,
+        public ChromiumWebBrowser(HtmlString html, IBrowserSettings browserSettings = null,
             IRequestContext requestContext = null, bool automaticallyCreateBrowser = true) : this(html.ToDataUriString(), browserSettings, requestContext, automaticallyCreateBrowser)
         {
         }
@@ -182,7 +182,7 @@ namespace CefSharp.OffScreen
         /// <param name="requestContext">See <see cref="RequestContext" /> for more details. Defaults to null</param>
         /// <param name="automaticallyCreateBrowser">automatically create the underlying Browser</param>
         /// <exception cref="System.InvalidOperationException">Cef::Initialize() failed</exception>
-        public ChromiumWebBrowser(string address = "", BrowserSettings browserSettings = null,
+        public ChromiumWebBrowser(string address = "", IBrowserSettings browserSettings = null,
             IRequestContext requestContext = null, bool automaticallyCreateBrowser = true)
         {
             if (!Cef.IsInitialized)
@@ -200,7 +200,7 @@ namespace CefSharp.OffScreen
             Cef.AddDisposable(this);
             Address = address;
 
-            managedCefBrowserAdapter = new ManagedCefBrowserAdapter(this, true);
+            managedCefBrowserAdapter = ManagedCefBrowserAdapter.Create(this, true);
 
             if (automaticallyCreateBrowser)
             {
@@ -285,7 +285,7 @@ namespace CefSharp.OffScreen
         /// <param name="windowInfo">Window information used when creating the browser</param>
         /// <param name="browserSettings">Browser initialization settings</param>
         /// <exception cref="System.Exception">An instance of the underlying offscreen browser has already been created, this method can only be called once.</exception>
-        public void CreateBrowser(IWindowInfo windowInfo = null, BrowserSettings browserSettings = null)
+        public void CreateBrowser(IWindowInfo windowInfo = null, IBrowserSettings browserSettings = null)
         {
             if (browserCreated)
             {
@@ -296,19 +296,19 @@ namespace CefSharp.OffScreen
 
             if (browserSettings == null)
             {
-                browserSettings = new BrowserSettings(frameworkCreated: true);
+                browserSettings = Core.ObjectFactory.CreateBrowserSettings(autoDispose: true);
             }
 
             if (windowInfo == null)
             {
-                windowInfo = new WindowInfo();
+                windowInfo = Core.ObjectFactory.CreateWindowInfo();
                 windowInfo.SetAsWindowless(IntPtr.Zero);
             }
 
-            managedCefBrowserAdapter.CreateBrowser(windowInfo, browserSettings, (RequestContext)RequestContext, Address);
+            managedCefBrowserAdapter.CreateBrowser(windowInfo, browserSettings, RequestContext, Address);
 
             //Dispose of BrowserSettings if we created it, if user created then they're responsible
-            if (browserSettings.FrameworkCreated)
+            if (browserSettings.AutoDispose)
             {
                 browserSettings.Dispose();
             }
@@ -399,7 +399,7 @@ namespace CefSharp.OffScreen
         /// It is your responsibility to dispose the returned Bitmap.
         /// The bitmap size is determined by the Size property set earlier.
         /// </summary>
-        /// <param name="ignoreExistingScreenshot">Ignore existing bitmap (if any) and return the next avaliable bitmap</param>
+        /// <param name="ignoreExistingScreenshot">Ignore existing bitmap (if any) and return the next available bitmap</param>
         /// <param name="blend">Choose which bitmap to retrieve, choose <see cref="PopupBlending.Blend"/> for a merged bitmap.</param>
         /// <returns>Task&lt;Bitmap&gt;.</returns>
         public Task<Bitmap> ScreenshotAsync(bool ignoreExistingScreenshot = false, PopupBlending blend = PopupBlending.Main)

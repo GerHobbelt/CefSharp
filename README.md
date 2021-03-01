@@ -11,7 +11,7 @@ Got a quick question? Jump on [![Gitter](https://badges.gitter.im/Join%20Chat.sv
 
 CefSharp is [BSD](https://opensource.org/licenses/BSD-3-Clause "BSD License") licensed, so it can be used in both proprietary and free/open source applications. For the full details, see the [LICENSE](LICENSE) file. 
 
-If you like and use CefSharp please consider signing up for a small monthly donation, even $20 can help tremendously. See [Financial Support](#Financial-Support) for more details.
+If you like and use CefSharp please consider signing up for a small monthly donation, even $25 can help tremendously. See [Financial Support](#Financial-Support) for more details.
 
 ## Releases
 
@@ -37,6 +37,7 @@ Please keep the `Issue Tracker` for **Bugs** only please! Before submitting a `P
 
 - [Stackoverflow](https://stackoverflow.com/questions/tagged/cefsharp) is generally where questions should be asked, please search before posting, thanks!
 - [CefSharp Questions-and-Support](https://github.com/cefsharp/Questions-and-Support/issues) is a repository here on `GitHub` where you can ask `CefSharp` specific questions.
+- [Chromium Embedded Framework(CEF) Forum](https://magpcss.org/ceforum/viewforum.php?f=18)
 - [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/cefsharp/CefSharp?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) is the place to ask if you need a quick pointer or two.
 
 ## Branches & Forks
@@ -75,9 +76,11 @@ If you're new to `CefSharp` and are downloading the source to check it out, plea
 
 | Branch                                                               | CEF Version | VC++ Version | .Net Version | Status |
 |----------------------------------------------------------------------|------|------|-------|-----------------|
-| [master](https://github.com/cefsharp/CefSharp/)                      | 4240 | 2015 | 4.5.2 | Development     |
-| [cefsharp/85](https://github.com/cefsharp/CefSharp/tree/cefsharp/85) | 4183 | 2015 | 4.5.2 | Pre-Release     |
-| [cefsharp/84](https://github.com/cefsharp/CefSharp/tree/cefsharp/84) | 4147 | 2015 | 4.5.2 | **Release**     |
+| [master](https://github.com/cefsharp/CefSharp/)                      | 4280 | 2015 | 4.5.2 | Development     |
+| [cefsharp/87](https://github.com/cefsharp/CefSharp/tree/cefsharp/87) | 4280 | 2015 | 4.5.2 | **Pre-Release** |
+| [cefsharp/86](https://github.com/cefsharp/CefSharp/tree/cefsharp/86) | 4240 | 2015 | 4.5.2 | **Release**     |
+| [cefsharp/85](https://github.com/cefsharp/CefSharp/tree/cefsharp/85) | 4183 | 2015 | 4.5.2 | Unsupported     |
+| [cefsharp/84](https://github.com/cefsharp/CefSharp/tree/cefsharp/84) | 4147 | 2015 | 4.5.2 | Unsupported     |
 | [cefsharp/83](https://github.com/cefsharp/CefSharp/tree/cefsharp/83) | 4103 | 2015 | 4.5.2 | Unsupported     |
 | [cefsharp/81](https://github.com/cefsharp/CefSharp/tree/cefsharp/81) | 4044 | 2015 | 4.5.2 | Unsupported     |
 | [cefsharp/79](https://github.com/cefsharp/CefSharp/tree/cefsharp/79) | 3945 | 2015 | 4.5.2 | Unsupported     |
@@ -107,7 +110,7 @@ If you're new to `CefSharp` and are downloading the source to check it out, plea
 
 To continue developing/supporting the project I (@amaitland) am asking for financial contributions. Donations of any size are greatly appreciated!
 
-Recurring contributions can be made through [GitHub Sponsors](https://github.com/sponsors/amaitland) it only takes a GitHub account and a credit card.  Currently GitHub is **doubling(!)** all pledges so is very much the preferred method of donation. I can also take contributions through [PayPal](https://paypal.me/AlexMaitland).
+Recurring contributions can be made through [GitHub Sponsors](https://github.com/sponsors/amaitland) it only takes a GitHub account and a credit card.  Currently GitHub is **doubling(!)** all pledges so is very much the preferred method of donation.  I can also take contributions through [PayPal](https://paypal.me/AlexMaitland).
 
 Now that I (@amaitland) am a stay at home dad your contributions are the only reason I'm allowed to continue working on the project. Without continued funding the time I currently spend on the project will have to be put into finding other paid work.
 
@@ -123,3 +126,4 @@ Now that I (@amaitland) am a stay at home dad your contributions are the only re
 ## Projects using CefSharp
 - [HtmlView](https://github.com/ramon-mendes/HtmlView) : Visual Studio extension bringing CefSharp for showing HTML pages inside VS.
 - [SharpBrowser](https://github.com/sharpbrowser/SharpBrowser) : The fastest web browser for C# with tabbed browsing and HTML5/CSS3.
+- [Chromely CefSharp](https://github.com/chromelyapps/CefSharp) : Build HTML Desktop Apps on .NET/.NET Core 3/.NET 5 using native GUI, HTML5/CSS.

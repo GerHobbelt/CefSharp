@@ -19,15 +19,22 @@
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
         <Platforms>x86;x64</Platforms>
+        <!--
+        Run on a newer version of .Net if the specified version (.Net Core 3.1) is not installed
+        https://github.com/dotnet/docs/issues/12237
+        -->
+        <RollForward>Major</RollForward>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\CefSharp.Core\CefSharp.Core.netcore.vcxproj" />
+        <ProjectReference Include="..\CefSharp.Core\CefSharp.Core.netcore.csproj" />
         <ProjectReference Include="..\CefSharp.Example\CefSharp.Example.netcore.csproj" />
         <ProjectReference Include="..\CefSharp.WinForms\CefSharp.WinForms.netcore.csproj" />
         <ProjectReference Include="..\CefSharp\CefSharp.netcore.csproj" />
         <PackageReference Include="cef.redist.x86" Version="86.0.24" />
         <PackageReference Include="cef.redist.x64" Version="86.0.24" />
+        <PackageReference Include="cef.redist.x86" Version="87.1.13" />
+        <PackageReference Include="cef.redist.x64" Version="87.1.13" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\cef.sdk.85.3.6\build\cef.sdk.props" Condition="Exists('..\packages\cef.sdk.85.3.6\build\cef.sdk.props')" />
+  <Import Project="..\packages\cef.sdk.85.3.12\build\cef.sdk.props" Condition="Exists('..\packages\cef.sdk.85.3.12\build\cef.sdk.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -245,6 +245,7 @@
     <ClCompile Include="Request.cpp" />
     <ClCompile Include="RequestContext.cpp" />
     <ClCompile Include="Internals\CefResourceHandlerAdapter.cpp" />
+    <ClCompile Include="RequestContextBuilder.cpp" />
     <ClCompile Include="Stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -302,6 +303,7 @@
     <ClInclude Include="PostData.h" />
     <ClInclude Include="PostDataElement.h" />
     <ClInclude Include="Request.h" />
+    <ClInclude Include="RequestContextBuilder.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="UrlRequest.h" />
     <ClInclude Include="WindowInfo.h" />
@@ -352,7 +354,7 @@
     <Manifest Include="Assembly.manifest" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <None Include="packages.CefSharp.Core.netcore.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

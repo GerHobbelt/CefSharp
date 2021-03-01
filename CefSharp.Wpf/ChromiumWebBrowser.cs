@@ -1874,13 +1874,6 @@ namespace CefSharp.Wpf
             }
         }
 
-        /// <summary>
-        /// Run the Action on the CEF UI Thread in an async fashion
-        /// </summary>
-        /// <param name="action">The action.</param>
-        /// <returns>
-        /// An asynchronous result.
-        /// </returns>
         protected async Task CefUiThreadRunAsync(Action action)
         {
             if (!IsDisposed && InternalIsBrowserInitialized())

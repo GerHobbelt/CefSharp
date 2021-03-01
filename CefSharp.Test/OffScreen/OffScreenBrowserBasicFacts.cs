@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CefSharp.Example;
+using CefSharp.Example.Handlers;
 using CefSharp.Internals;
 using CefSharp.OffScreen;
 using Xunit;
@@ -199,6 +200,34 @@ namespace CefSharp.Test.OffScreen
             }
         }
 
+        [Theory]
+        [InlineData("return 42;", true, "42")]
+        [InlineData("return new Promise(function(resolve, reject) { resolve(42); });", true, "42")]
+        [InlineData("return new Promise(function(resolve, reject) { reject('reject test'); });", false, "reject test")]
+        public async Task CanEvaluateScriptAsPromiseAsync(string script, bool success, string expected)
+        {
+            using (var browser = new ChromiumWebBrowser("http://www.google.com"))
+            {
+                await browser.LoadPageAsync();
+
+                var mainFrame = browser.GetMainFrame();
+                Assert.True(mainFrame.IsValid);
+
+                var javascriptResponse = await browser.EvaluateScriptAsPromiseAsync(script);
+
+                Assert.Equal(success, javascriptResponse.Success);
+
+                if (success)
+                {
+                    Assert.Equal(expected, javascriptResponse.Result.ToString());
+                }
+                else
+                {
+                    Assert.Equal(expected, javascriptResponse.Message);
+                }
+            }
+        }
+
         [Fact]
         public async Task CanMakeFrameUrlRequest()
         {
@@ -282,6 +311,28 @@ namespace CefSharp.Test.OffScreen
                 await browser.LoadPageAsync(firstUrl);
 
                 Assert.True(browser.CanExecuteJavascriptInMainFrame);
+            }
+        }
+
+        [SkipIfRunOnAppVeyorFact]
+        public async Task CanLoadHttpWebsiteUsingProxy()
+        {
+            fixture.StartProxyServerIfRequired();
+
+            var requestContext = RequestContext
+                .Configure()
+                .WithProxyServer("127.0.0.1", 8080)
+                .Create();
+                
+            using (var browser = new ChromiumWebBrowser("http://cefsharp.github.io/", requestContext: requestContext))
+            {
+                await browser.LoadPageAsync();
+
+                var mainFrame = browser.GetMainFrame();
+                Assert.True(mainFrame.IsValid);
+                Assert.Contains("cefsharp.github.io", mainFrame.Url);
+
+                output.WriteLine("Url {0}", mainFrame.Url);
             }
         }
     }

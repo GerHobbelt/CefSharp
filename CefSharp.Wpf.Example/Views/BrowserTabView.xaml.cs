@@ -29,6 +29,15 @@ namespace CefSharp.Wpf.Example.Views
 
             //browser.BrowserSettings.BackgroundColor = Cef.ColorSetARGB(0, 255, 255, 255);
 
+            //Please remove the comments below to use the Experimental WpfImeKeyboardHandler.
+            //browser.WpfKeyboardHandler = new WpfImeKeyboardHandler(browser);
+
+            //Please remove the comments below to specify the color of the CompositionUnderline.
+            //var transparent = Colors.Transparent;
+            //var black = Colors.Black;
+            //ImeHandler.ColorBKCOLOR = Cef.ColorSetARGB(transparent.A, transparent.R, transparent.G, transparent.B);
+            //ImeHandler.ColorUNDERLINE = Cef.ColorSetARGB(black.A, black.R, black.G, black.B);
+
             browser.RequestHandler = new ExampleRequestHandler();
 
             var bindingOptions = new BindingOptions()
@@ -83,6 +92,7 @@ namespace CefSharp.Wpf.Example.Views
             downloadHandler.OnBeforeDownloadFired += OnBeforeDownloadFired;
             downloadHandler.OnDownloadUpdatedFired += OnDownloadUpdatedFired;
             browser.DownloadHandler = downloadHandler;
+            browser.AudioHandler = new AudioHandler();
             var loadHandler = new LoadHandler();
             browser.LoadHandler = loadHandler;
 #if false

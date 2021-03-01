@@ -179,6 +179,11 @@ namespace CefSharp.Example.Handlers
         {
 
         }
+
+        public virtual void OnDocumentAvailableInMainFrame(IWebBrowser chromiumWebBrowser, IBrowser browser)
+        {
+
+        }
     }
 }
 #endif

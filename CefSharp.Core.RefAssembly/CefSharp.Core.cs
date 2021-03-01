@@ -329,6 +329,14 @@ namespace CefSharp
         public virtual void SetAsWindowless(System.IntPtr parentHandle) { }
     }
 }
+namespace CefSharp.BrowserSubprocess
+{
+    public partial class SelfHost
+    {
+        public SelfHost() { }
+        public static int Main(string[] args) { throw null; }
+    }
+}
 namespace CefSharp.Internals
 {
     public partial class CefDragDataWrapper : CefSharp.Internals.CefWrapper, CefSharp.IDragData

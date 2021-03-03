@@ -15,7 +15,7 @@
   
   <!--
   For VS2017 when publishing x86/x64 there's  CefSharp.Core.Runtime.dll references in both _DeploymentManifestDependencies and _DeploymentManifestFiles
-  This causes an Error occurred writing to hard disk exception, so we remove one (we leve the dependency and just remove the file reference.
+  This causes an Error occurred writing to hard disk exception, so we remove one (we leave the dependency and just remove the file reference).
   -->
   <Target Name="CefSharpExcludeCoreRuntimeBeforeGenerateApplicationManifest" BeforeTargets="GenerateApplicationManifest" Condition="'$(CefSharpPlatformTarget)' != 'AnyCPU' AND $(TargetFrameworkVersion.StartsWith('v4.'))">
     <ItemGroup>

@@ -15,7 +15,7 @@ namespace CefSharp
     public static class ManagedCefBrowserAdapter
     {
         /// <summary>
-        /// Create a new <see cref="IBrowserAdapter"/> instance which is the main method of interaction between the unmanged
+        /// Create a new <see cref="IBrowserAdapter"/> instance which is the main method of interaction between the unmanaged
         /// CEF implementation and our ChromiumWebBrowser instances.
         /// </summary>
         /// <param name="webBrowserInternal">reference to the ChromiumWebBrowser instance</param>

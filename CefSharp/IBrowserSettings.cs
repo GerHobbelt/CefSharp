@@ -214,7 +214,7 @@ namespace CefSharp
         /// <summary>
         /// Gets a value indicating if the browser settings instance was created internally by CefSharp.
         /// Instances created by CefSharp will be Disposed of after use. To control the lifespan yourself
-        /// create an set BrowserSettings yourself.
+        /// create and set BrowserSettings yourself.
         /// </summary>
         bool AutoDispose { get; }
 

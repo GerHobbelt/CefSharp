@@ -44,7 +44,10 @@ namespace CefSharp
         /// <value>true if CefSharp is initialized; otherwise, false.</value>
         public static bool IsInitialized
         {
-            get { return Core.Cef.IsInitialized; }
+            get
+            {
+                return Core.Cef.IsInitialized;
+            }
         }
 
         /// <summary>Gets a value that indicates the version of CefSharp currently being used.</summary>

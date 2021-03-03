@@ -16,6 +16,7 @@ namespace CefSharp.Handler
         /// <inheritdoc/>
         bool IRequestHandler.OnBeforeBrowse(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, bool userGesture, bool isRedirect)
         {
+            //TODO: [GHo] hook into here as every page request goes through here
             return OnBeforeBrowse(chromiumWebBrowser, browser, frame, request, userGesture, isRedirect);
         }
 
@@ -235,6 +236,7 @@ namespace CefSharp.Handler
         /// <inheritdoc/>
         void IRequestHandler.OnRenderViewReady(IWebBrowser chromiumWebBrowser, IBrowser browser)
         {
+            //TODO: [GHo] hook into here as every page request goes through here
             OnRenderViewReady(chromiumWebBrowser, browser);
         }
 

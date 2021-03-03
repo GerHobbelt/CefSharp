@@ -367,7 +367,7 @@ namespace CefSharp
         /// <remarks>
         /// `Cef` Native `LoadHtml` is unpredictable and only works sometimes, this method wraps the provided HTML in a
         /// <see cref="ResourceHandler"/> and loads the provided url using the <see cref="IWebBrowser.Load"/> method. Defaults to using
-        /// <see cref="Encoding.UTF8"/> for character encoding The url must start with a valid schema, other uri's such as about:blank
+        /// <see cref="Encoding.UTF8"/> for character encoding. The url must start with a valid schema, other uri's such as about:blank
         /// are invalid A valid example looks like http://test/page.
         /// </remarks>
         /// <param name="browser">The ChromiumWebBrowser instance this method extends.</param>
@@ -745,7 +745,14 @@ namespace CefSharp
             ThrowExceptionIfBrowserHostNull(host);
 
             var callback = new TaskPrintToPdfCallback();
-            host.PrintToPdf(path, settings, callback);
+            try
+            {
+                host.PrintToPdf(path, settings, callback);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("internal failure", ex);
+            }
 
             return callback.Task;
         }

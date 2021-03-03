@@ -1617,6 +1617,8 @@ namespace CefSharp.Wpf
 
                 monitorInfo.Init();
                 MonitorInfo.GetMonitorInfoForWindowHandle(source.Handle, ref monitorInfo);
+
+                source.AddHook(DpiChangedHook);
             }
             else if (args.OldSource != null)
             {
@@ -1629,6 +1631,8 @@ namespace CefSharp.Wpf
                     window.LocationChanged -= OnWindowLocationChanged;
                     sourceWindow = null;
                 }
+
+                (args.OldSource as HwndSource)?.RemoveHook(DpiChangedHook);
             }
         }
 
@@ -1892,6 +1896,17 @@ namespace CefSharp.Wpf
             browserScreenLocation = GetBrowserScreenLocation();
         }
 
+        private IntPtr DpiChangedHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            int WM_DPICHANGED = 0x02E0;
+            if (msg == WM_DPICHANGED)
+            {
+                var dpi = wParam.CastToInt32() & 0xffff;
+                NotifyDpiChange(dpi / 96);
+            }
+            return IntPtr.Zero;
+        }
+
         /// <summary>
         /// When overridden in a derived class, is invoked whenever application code or internal processes call
         /// <see cref="M:System.Windows.FrameworkElement.ApplyTemplate" />.
@@ -2153,6 +2168,11 @@ namespace CefSharp.Wpf
             }
 
             base.OnMouseDown(e);
+
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                Mouse.Capture(this); // allow capturing mouse when outside the webview (eg: grabbing scrollbar)
+            }
         }
 
         /// <summary>
@@ -2183,6 +2203,11 @@ namespace CefSharp.Wpf
             }
 
             base.OnMouseUp(e);
+
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                Mouse.Capture(null);
+            }
         }
 
         /// <summary>

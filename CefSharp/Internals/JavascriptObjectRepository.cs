@@ -37,7 +37,7 @@ namespace CefSharp.Internals
         public const string AllObjects = "All";
         public const string LegacyObjects = "Legacy";
 
-        private static long lastId;
+        private static long LastId;
 
         public event EventHandler<JavascriptBindingEventArgs> ResolveObject;
         public event EventHandler<JavascriptBindingCompleteEventArgs> ObjectBoundInJavascript;
@@ -162,7 +162,7 @@ namespace CefSharp.Internals
 
         private JavascriptObject CreateJavascriptObject(bool rootObject)
         {
-            var id = Interlocked.Increment(ref lastId);
+            var id = Interlocked.Increment(ref LastId);
 
             var result = new JavascriptObject
             {
@@ -352,7 +352,18 @@ namespace CefSharp.Internals
                     }
                     else
                     {
-                        result = obj.MethodInterceptor.Intercept((p) => method.Function(obj.Value, p), parameters, method.ManagedName);
+                        result = obj.MethodInterceptor.Intercept((p) =>
+                        {
+                            try
+                            {
+                                var rv = method.Function(obj.Value, p);
+                                return rv;
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new InvalidOperationException("MethodInterceptor.Intercept failure", ex);
+                            }
+                        }, parameters, method.ManagedName);
                     }
                 }
                 catch (Exception e)

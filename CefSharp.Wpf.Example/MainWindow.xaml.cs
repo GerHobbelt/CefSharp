@@ -252,14 +252,23 @@ namespace CefSharp.Wpf.Example
 
                 if (dialog.ShowDialog() == true)
                 {
-                    var success = await browserViewModel.WebBrowser.PrintToPdfAsync(dialog.FileName, new PdfPrintSettings
+                    // https://stackoverflow.com/questions/5383310/catch-an-exception-thrown-by-an-async-void-method#answer-5383408
+                    bool success = false;
+                    try
                     {
-                        MarginType = CefPdfPrintMarginType.Custom,
-                        MarginBottom = 10,
-                        MarginTop = 0,
-                        MarginLeft = 20,
-                        MarginRight = 10,
-                    });
+                        success = await browserViewModel.WebBrowser.PrintToPdfAsync(dialog.FileName, new PdfPrintSettings
+                        {
+                            MarginType = CefPdfPrintMarginType.Custom,
+                            MarginBottom = 10,
+                            MarginTop = 0,
+                            MarginLeft = 20,
+                            MarginRight = 10,
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Exception: " + ex.Message + "\n\n" + ex.StackTrace);
+                    }
 
                     if (success)
                     {

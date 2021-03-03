@@ -21,6 +21,7 @@ namespace CefSharp.Example.Handlers
 
         protected override bool OnBeforeBrowse(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, bool userGesture, bool isRedirect)
         {
+            //TODO: [GHo] hook into here as every page request goes through here
             return false;
         }
 
@@ -138,6 +139,7 @@ namespace CefSharp.Example.Handlers
 
         protected override IResourceRequestHandler GetResourceRequestHandler(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, bool isNavigation, bool isDownload, string requestInitiator, ref bool disableDefaultHandling)
         {
+            //TODO: [GHo] hook into here as every URI goes through here
             //NOTE: In most cases you examine the request.Url and only handle requests you are interested in
             if (request.Url.ToLower().StartsWith("https://cefsharp.example")
                 || request.Url.ToLower().StartsWith(CefSharpSchemeHandlerFactory.SchemeName)

@@ -12,6 +12,9 @@ namespace CefSharp.Wpf.Example.Handlers
 {
     public class MenuHandler : IContextMenuHandler
     {
+        private const int ShowDevTools = 26501;
+        private const int CloseDevTools = 26502;
+
         void IContextMenuHandler.OnBeforeContextMenu(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IContextMenuParams parameters, IMenuModel model)
         {
             Console.WriteLine("Context menu opened");
@@ -22,9 +25,12 @@ namespace CefSharp.Wpf.Example.Handlers
                 model.AddSeparator();
             }
 
-            model.AddItem((CefMenuCommand)26501, "Show DevTools");
-            model.AddItem((CefMenuCommand)26502, "Close DevTools");
+            //Add new custom menu items
+            model.AddItem((CefMenuCommand)ShowDevTools, "Show DevTools");
+            model.AddItem((CefMenuCommand)CloseDevTools, "Close DevTools");
 
+            //Removing existing menu item
+            //bool removed = model.Remove(CefMenuCommand.ViewSource); // Remove "View Source" option
 
             //To disable context mode then clear
             // model.Clear();
@@ -32,12 +38,12 @@ namespace CefSharp.Wpf.Example.Handlers
 
         bool IContextMenuHandler.OnContextMenuCommand(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IContextMenuParams parameters, CefMenuCommand commandId, CefEventFlags eventFlags)
         {
-            if (commandId == (CefMenuCommand)26501)
+            if ((int)commandId == ShowDevTools)
             {
                 browser.GetHost().ShowDevTools();
                 return true;
             }
-            if (commandId == (CefMenuCommand)26502)
+            if ((int)commandId == CloseDevTools)
             {
                 browser.GetHost().CloseDevTools();
                 return true;

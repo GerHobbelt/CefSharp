@@ -42,20 +42,22 @@ namespace CefSharp.Example.Handlers
                 request.SetReferrer("http://google.com", ReferrerPolicy.Default);
             }
 
+#if false
             //Example of setting User-Agent in every request.
-            //var headers = request.Headers;
+            var headers = request.Headers;
 
-            //var userAgent = headers["User-Agent"];
-            //headers["User-Agent"] = userAgent + " CefSharp";
+            var userAgent = headers["User-Agent"];
+            headers["User-Agent"] = userAgent + " CefSharp";
 
-            //request.Headers = headers;
+            request.Headers = headers;
+#endif
 
             //NOTE: If you do not wish to implement this method returning false is the default behaviour
             // We also suggest you explicitly Dispose of the callback as it wraps an unmanaged resource.
             //callback.Dispose();
             //return false;
 
-            //NOTE: When executing the callback in an async fashion need to check to see if it's disposed
+            //NOTE: When executing the callback in an async fashion you need to check to see if it's disposed
             if (!callback.IsDisposed)
             {
                 using (callback)

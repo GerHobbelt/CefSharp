@@ -11,7 +11,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CefSharp</RootNamespace>
     <AssemblyName>CefSharp</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
@@ -50,14 +50,9 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Linq" />
-    <Reference Include="System.Runtime" />
-    <Reference Include="System.Runtime.InteropServices" />
-    <Reference Include="System.Runtime.InteropServices.RuntimeInformation" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ServiceModel" />
     <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Threading.Thread" />
     <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
@@ -112,11 +107,11 @@
     <Compile Include="Enums\SchemeOptions.cs" />
     <Compile Include="Handler\RequestContextHandler.cs" />
     <Compile Include="Internals\CefThread.cs" />
+    <Compile Include="Internals\FreezableBase.cs" />
     <Compile Include="Internals\IBrowserRefCounter.cs" />
     <Compile Include="Internals\MimeTypeMapping.cs" />
-    <Compile Include="IRegistration.cs" />
-    <Compile Include="Internals\FreezableBase.cs" />
     <Compile Include="Internals\Tasks\SyncContextTaskCompletionSource.cs" />
+    <Compile Include="IRegistration.cs" />
     <Compile Include="JavascriptBinding\JavascriptBindingSettings.cs" />
     <Compile Include="Internals\NoOpBrowserRefCounter.cs" />
     <Compile Include="Internals\PathCheck.cs" />

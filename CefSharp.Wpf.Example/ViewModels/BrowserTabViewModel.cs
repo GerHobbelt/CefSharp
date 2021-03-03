@@ -233,6 +233,7 @@ namespace CefSharp.Wpf.Example.ViewModels
 
         protected void Set<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
         {
+            // [i_a]
             field = value;
             if (PropertyChanged != null)
             {

@@ -345,9 +345,6 @@
     <ClInclude Include="vcclr_local.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\chromely-demo-apps\cef_binary_89.0.5+gc1f90d8+chromium-89.0.4389.40_windows64_beta\cef_binary_89.0.5+gc1f90d8+chromium-89.0.4389.40_windows64_beta\libcef_dll_wrapper\libcef_dll_wrapper.vcxproj">
-      <Project>{21ba508b-2218-3a12-8191-c5afcac41338}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\CefSharp\CefSharp.csproj">
       <Project>{a55848cc-10e7-40cb-addb-04740b16dd43}</Project>
       <Private>false</Private>
@@ -355,6 +352,9 @@
       <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
       <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
+    </ProjectReference>
+    <ProjectReference Include="..\cef_binary_89.0.5+gc1f90d8+chromium-89.0.4389.40_windows64_beta\cef_binary_89.0.5+gc1f90d8+chromium-89.0.4389.40_windows64_beta\libcef_dll_wrapper\libcef_dll_wrapper.vcxproj">
+      <Project>{21ba508b-2218-3a12-8191-c5afcac41338}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

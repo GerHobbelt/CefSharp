@@ -82,6 +82,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CefSharp.Test", "CefSharp.T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CefSharp.Core", "CefSharp.Core\CefSharp.Core.csproj", "{B760B002-D277-4525-9F63-67ED2065034A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libcef_dll_wrapper", "cef_binary_89.0.5+gc1f90d8+chromium-89.0.4389.40_windows64_beta\cef_binary_89.0.5+gc1f90d8+chromium-89.0.4389.40_windows64_beta\libcef_dll_wrapper\libcef_dll_wrapper.vcxproj", "{21BA508B-2218-3A12-8191-C5AFCAC41338}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -189,6 +191,12 @@ Global
 		{B760B002-D277-4525-9F63-67ED2065034A}.Release|x64.ActiveCfg = Release|x64
 		{B760B002-D277-4525-9F63-67ED2065034A}.Release|x86.ActiveCfg = Release|x86
 		{B760B002-D277-4525-9F63-67ED2065034A}.Release|x86.Build.0 = Release|x86
+		{21BA508B-2218-3A12-8191-C5AFCAC41338}.Debug|x64.ActiveCfg = Debug|x64
+		{21BA508B-2218-3A12-8191-C5AFCAC41338}.Debug|x64.Build.0 = Debug|x64
+		{21BA508B-2218-3A12-8191-C5AFCAC41338}.Debug|x86.ActiveCfg = Debug|x64
+		{21BA508B-2218-3A12-8191-C5AFCAC41338}.Release|x64.ActiveCfg = Release|x64
+		{21BA508B-2218-3A12-8191-C5AFCAC41338}.Release|x64.Build.0 = Release|x64
+		{21BA508B-2218-3A12-8191-C5AFCAC41338}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
